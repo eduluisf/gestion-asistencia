@@ -1,0 +1,266 @@
+/* ─────────────────────────────────────────────────────────
+   styles.css — Design system compartido
+   Control de Asistencia
+   ───────────────────────────────────────────────────────── */
+
+/* ─── FONT ───────────────────────────────────────────────
+   General Sans (Fontshare) — geométrica, moderna, legible
+   ──────────────────────────────────────────────────────── */
+@import url('https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700,800&display=swap');
+
+/* ─── RESET ──────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration:  0.01ms !important;
+  }
+}
+
+/* ─── TOKENS ─────────────────────────────────────────────── */
+:root {
+  /* Superficies */
+  --bg:        #09090b;
+  --surface:   #18181b;
+  --surface-2: #27272a;
+  --border:    #3f3f46;
+  --border-2:  #52525b;
+
+  /* Acento — verde */
+  --accent:     #3cb878;
+  --accent-2:   #5acb8a;
+  --accent-dim: rgba(60, 184, 120, .12);
+
+  /* Semánticos */
+  --present: #22c55e;
+  --absent:  #ef4444;
+  --warn:    #eab308;
+
+  /* Texto */
+  --text:   #fafafa;
+  --text-2: #a1a1aa;
+  --text-3: #71717a;
+
+  /* Alias de compatibilidad (usados en asistencia.html) */
+  --surface2:     var(--surface-2);
+  --text-muted:   var(--text-2);
+  --accent-hover: var(--accent-2);
+  --radius: 10px;
+  --shadow: 0 4px 24px rgba(0, 0, 0, .4);
+
+  /* Escala de radius */
+  --r-sm:  6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+}
+
+/* ─── BASE ────────────────────────────────────────────────── */
+body {
+  font-family: 'General Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+}
+
+/* ─── SKIP LINK (accesibilidad) ───────────────────────────── */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 16px;
+  z-index: 9999;
+  padding: 10px 18px;
+  background: var(--accent);
+  color: var(--bg);   /* texto oscuro sobre verde — contraste ~9.6:1 */
+  font-weight: 700;
+  font-size: .875rem;
+  border-radius: var(--r-md);
+  text-decoration: none;
+  transition: top .2s;
+}
+.skip-link:focus { top: 16px; }
+
+/* ─── FOCUS VISIBLE GLOBAL ────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+
+/* ─── BUTTONS ─────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 18px;
+  border-radius: var(--r-md);
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: .875rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background .15s, border-color .15s, color .15s;
+  white-space: nowrap;
+  line-height: 1;
+}
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Primario — verde con texto oscuro (WCAG AA: ~9.6:1) */
+.btn-primary { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+.btn-primary:hover { background: var(--accent-2); border-color: var(--accent-2); }
+
+/* Secundario */
+.btn-secondary { background: var(--surface); color: var(--text-2); border-color: var(--border); }
+.btn-secondary:hover { color: var(--text); border-color: var(--border-2); background: var(--surface-2); }
+
+/* Ghost */
+.btn-ghost { background: var(--surface-2); color: var(--text); border-color: var(--border); }
+.btn-ghost:hover { background: var(--border); }
+
+/* Peligro */
+.btn-danger { background: rgba(239, 68, 68, .1); color: #fca5a5; border-color: rgba(239, 68, 68, .25); }
+.btn-danger:hover { background: rgba(239, 68, 68, .2); }
+
+/* Éxito */
+.btn-success { background: rgba(34, 197, 94, .1); color: #86efac; border-color: rgba(34, 197, 94, .25); }
+.btn-success:hover { background: rgba(34, 197, 94, .2); }
+
+/* Guardar (verde acento) */
+.btn-save { background: rgba(60, 184, 120, .1); color: var(--accent); border-color: rgba(60, 184, 120, .25); }
+.btn-save:hover { background: rgba(60, 184, 120, .2); }
+
+/* Cargar */
+.btn-load { background: var(--surface-2); color: var(--text-2); border-color: var(--border); }
+.btn-load:hover { color: var(--text); border-color: var(--border-2); }
+
+/* Tamaño pequeño */
+.btn-sm { padding: 5px 12px; font-size: .8rem; border-radius: var(--r-sm); }
+
+/* ─── INPUTS ──────────────────────────────────────────────── */
+input[type="text"],
+input[type="date"],
+textarea,
+select {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--r-md);
+  padding: 9px 12px;
+  font-family: inherit;
+  font-size: .9rem;
+  outline: none;
+  transition: border-color .15s;
+  width: 100%;
+}
+input[type="text"]:focus,
+input[type="date"]:focus,
+textarea:focus,
+select:focus    { border-color: var(--accent); }
+textarea        { resize: vertical; min-height: 120px; }
+
+/* ─── CARD ────────────────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 20px;
+}
+
+/* ─── BADGES (reporte) ────────────────────────────────────── */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-size: .75rem;
+  font-weight: 700;
+  letter-spacing: .01em;
+}
+.badge-green  { background: rgba(34, 197, 94, .14); color: var(--present); }
+.badge-yellow { background: rgba(234, 179, 8, .14);  color: var(--warn); }
+.badge-red    { background: rgba(239, 68, 68, .14);  color: var(--absent); }
+
+/* ─── TAGS (tutorial / inline) ────────────────────────────── */
+.tag {
+  display: inline-block;
+  font-size: .75rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  white-space: nowrap;
+}
+.tag-accent { background: var(--accent-dim); border-color: rgba(60, 184, 120, .25); color: var(--accent); }
+.tag-green  { background: rgba(34, 197, 94, .1); border-color: rgba(34, 197, 94, .25); color: var(--present); }
+.tag-red    { background: rgba(239, 68, 68, .1); border-color: rgba(239, 68, 68, .25); color: var(--absent); }
+.tag-warn   { background: rgba(234, 179, 8, .1);  border-color: rgba(234, 179, 8, .25);  color: var(--warn); }
+
+/* ─── EMPTY STATE ─────────────────────────────────────────── */
+.empty-state { text-align: center; padding: 60px 20px; color: var(--text-2); }
+.empty-state .icon { font-size: 2.5rem; margin-bottom: 12px; opacity: .5; }
+.empty-state p { font-size: .95rem; }
+
+/* ─── DIVIDER ─────────────────────────────────────────────── */
+hr.divider { border: none; border-top: 1px solid var(--border); }
+
+/* ─── TOAST ───────────────────────────────────────────────── */
+#toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 999;
+  background: var(--surface-2);
+  border: 1px solid var(--border-2);
+  border-radius: var(--r-md);
+  padding: 12px 18px;
+  font-size: .875rem;
+  font-weight: 600;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, .4);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity .2s, transform .2s;
+  pointer-events: none;
+}
+#toast.show { opacity: 1; transform: translateY(0); }
+
+/* ─── MODAL ───────────────────────────────────────────────── */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, .65);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.modal-backdrop.open { display: flex; }
+
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 28px;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, .5);
+}
+.modal h2      { font-size: 1.05rem; font-weight: 700; margin-bottom: 8px; }
+.modal p       { color: var(--text-2); font-size: .875rem; line-height: 1.6; }
+.modal input   { margin-top: 14px; }
+.modal-footer  { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+
+/* ─── ANIMATIONS ──────────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
