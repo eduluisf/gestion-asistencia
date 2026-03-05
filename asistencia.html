@@ -1272,9 +1272,8 @@ function loadFromFile(input) {
 function exportCSV() {
   const picker = document.getElementById('report-materia-picker');
   const m      = getMateriaById(picker.value) || currentMateria();
-  const weeks  = Object.keys(m.weeks).sort();
 
-  if (!m.students.length || !weeks.length) { toast('No hay datos para exportar'); return; }
+  if (!m.students.length || !Object.keys(m.weeks).length) { toast('No hay datos para exportar'); return; }
 
   const spw        = m.sessionsPerWeek || 1;
   const totalSess  = (m.totalWeeks || 0) * spw;
