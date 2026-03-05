@@ -451,7 +451,7 @@
       <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-ghost   btn-sm" onclick="refreshReport()">↻ Actualizar</button>
         <button class="btn btn-primary btn-sm" onclick="exportCSV()">↓ Exportar CSV</button>
-        <button class="btn btn-ghost   btn-sm" onclick="window.print()">⎙ Imprimir</button>
+        <button class="btn btn-ghost   btn-sm" onclick="exportPDF()">⎙ Guardar PDF</button>
       </div>
     </div>
 
@@ -1275,6 +1275,162 @@ function loadFromFile(input) {
     input.value = '';
   };
   reader.readAsText(file);
+}
+
+// ===================================================
+//  EXPORTAR PDF
+// ===================================================
+function exportPDF() {
+  const picker = document.getElementById('report-materia-picker');
+  const m      = getMateriaById(picker.value) || currentMateria();
+  const studs  = m.students;
+
+  const spw        = m.sessionsPerWeek || 1;
+  const totalSess  = (m.totalWeeks || 0) * spw;
+  const lossThresh = totalSess ? Math.floor(totalSess * ((m.lossPercent ?? 25) / 100)) : null;
+  const hasCfg     = !!m.totalWeeks;
+  const noClassWks = m.noClassWeeks || {};
+  const passThresh = hasCfg ? (100 - (m.lossPercent ?? 25)) : 80;
+
+  // Same week filter as report
+  let weeks = Object.keys(m.weeks).sort();
+  if (m.startDate && m.totalWeeks) {
+    const startWk = getWeekKey(new Date(m.startDate + 'T12:00:00'));
+    const endMon  = new Date(m.startDate + 'T12:00:00');
+    endMon.setUTCDate(endMon.getUTCDate() + (m.totalWeeks - 1) * 7);
+    weeks = weeks.filter(wk => wk >= startWk && wk <= getWeekKey(endMon));
+  }
+
+  if (!studs.length || !weeks.length) { toast('No hay datos para el PDF'); return; }
+
+  // Pre-compute totals per student (using all active weeks)
+  const totals = studs.map(name => {
+    let p = 0, a = 0;
+    weeks.forEach(wk => {
+      if (noClassWks[wk]) return;
+      const v = m.weeks[wk]?.[name];
+      if (v === true)  p++;
+      if (v === false) a++;
+    });
+    return { p, a };
+  });
+
+  // Course info line
+  const courseLineParts = [];
+  if (m.startDate) {
+    const sd = new Date(m.startDate + 'T12:00:00');
+    courseLineParts.push('Inicio: ' + sd.toLocaleDateString('es-MX', { day:'2-digit', month:'long', year:'numeric', timeZone:'UTC' }));
+  }
+  if (m.totalWeeks) courseLineParts.push(m.totalWeeks + ' semanas');
+  if (spw > 1) courseLineParts.push(spw + ' ses/sem');
+  if (totalSess) courseLineParts.push(totalSess + ' sesiones totales');
+  if (lossThresh) courseLineParts.push('Máx. faltas: ' + lossThresh + ' ses.');
+  const courseInfo = courseLineParts.join('  ·  ');
+
+  // Chunk weeks — 10 per page in landscape
+  const CHUNK = 10;
+  const chunks = [];
+  for (let i = 0; i < weeks.length; i += CHUNK) chunks.push(weeks.slice(i, i + CHUNK));
+
+  const totalPages = chunks.length;
+
+  const pagesHtml = chunks.map((chunkWks, ci) => {
+    const isLast = ci === chunks.length - 1;
+
+    const thead = `<tr>
+      <th class="th-num">#</th>
+      <th class="th-name">Alumno</th>
+      ${chunkWks.map(wk => `<th class="${noClassWks[wk] ? 'th-nc' : 'th-wk'}">${shortWeekLabel(wk)}${noClassWks[wk] ? '<br><span class="nc-label">NC</span>' : ''}</th>`).join('')}
+      ${isLast ? `<th class="th-stat">Ses.P</th><th class="th-stat">Ses.A</th><th class="th-pct">%</th>${hasCfg ? '<th class="th-estado">Estado</th>' : ''}` : '<th class="th-cont">···</th>'}
+    </tr>`;
+
+    const tbody = studs.map((name, i) => {
+      const { p, a } = totals[i];
+      const tot = p + a;
+      const pct = tot ? Math.round(p / tot * 100) : 0;
+      const pctCls = pct >= passThresh ? 'ok' : pct >= passThresh * 0.85 ? 'risk' : 'lost';
+
+      let estadoText = '', estadoCls = '';
+      if (hasCfg && lossThresh !== null) {
+        const absSess = a * spw;
+        if (absSess >= lossThresh)                         { estadoText = 'Perdida';    estadoCls = 'lost'; }
+        else if (absSess >= Math.floor(lossThresh * 0.75)) { estadoText = 'En riesgo';  estadoCls = 'risk'; }
+        else                                               { estadoText = 'OK';          estadoCls = 'ok';   }
+      }
+
+      const cells = chunkWks.map(wk => {
+        if (noClassWks[wk]) return '<td class="c-nc">—</td>';
+        const v = m.weeks[wk]?.[name];
+        if (v === true)  return '<td class="c-p">P</td>';
+        if (v === false) return '<td class="c-a">A</td>';
+        return '<td class="c-none">·</td>';
+      }).join('');
+
+      const statsCells = isLast
+        ? `<td class="c-stat">${p * spw}</td><td class="c-stat">${a * spw}</td><td class="c-pct ${pctCls}">${pct}%</td>${hasCfg ? `<td class="c-estado ${estadoCls}">${estadoText}</td>` : ''}`
+        : '<td class="c-cont">···</td>';
+
+      return `<tr><td class="c-num">${i + 1}</td><td class="c-name">${escHtml(name)}</td>${cells}${statsCells}</tr>`;
+    }).join('');
+
+    return `
+    <div class="page">
+      <div class="page-head">
+        <div class="page-head-left">
+          <div class="mat-title">${escHtml(m.name)}</div>
+          ${courseInfo ? `<div class="mat-info">${courseInfo}</div>` : ''}
+        </div>
+        <div class="page-num">Pág. ${ci + 1} / ${totalPages}</div>
+      </div>
+      <table><thead>${thead}</thead><tbody>${tbody}</tbody></table>
+    </div>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<title>Reporte · ${escHtml(m.name)}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  @page{size:landscape;margin:10mm 12mm}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:10.5px;color:#111;background:#fff}
+  .page{width:100%;padding:0 0 12px;page-break-after:always}
+  .page:last-child{page-break-after:avoid}
+  .page-head{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #111;padding-bottom:7px;margin-bottom:10px}
+  .mat-title{font-size:17px;font-weight:800;letter-spacing:-.5px}
+  .mat-info{font-size:9px;color:#555;margin-top:3px}
+  .page-num{font-size:9px;color:#888;white-space:nowrap}
+  table{width:100%;border-collapse:collapse}
+  th,td{border:1px solid #d8d8d8;padding:3px 4px;text-align:center;vertical-align:middle;white-space:nowrap}
+  th{background:#f2f2f2;font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+  .th-name,.c-name{text-align:left;min-width:120px;max-width:170px;font-weight:600;overflow:hidden;text-overflow:ellipsis}
+  .th-num,.c-num{width:22px;color:#999;font-size:9px}
+  .th-wk{width:42px}.th-nc{width:42px;color:#bbb;background:#f9f9f9}
+  .th-stat{width:38px}.th-pct{width:34px}.th-estado{width:58px}.th-cont{width:24px;color:#ccc}
+  .c-p{color:#16a34a;font-weight:700;background:rgba(22,163,74,.07)}
+  .c-a{color:#dc2626;font-weight:700;background:rgba(220,38,38,.07)}
+  .c-nc{color:#bbb}.c-none{color:#d0d0d0}.c-cont{color:#ccc}
+  .c-stat{font-weight:700}.c-pct{font-weight:800}
+  .nc-label{font-size:7px;display:block;letter-spacing:.03em}
+  .ok{color:#16a34a}.risk{color:#b45309}.lost{color:#dc2626}
+  tbody tr:nth-child(even){background:#fafafa}
+  @media print{
+    body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .page{padding:0 0 8px}
+  }
+</style>
+</head>
+<body>
+${pagesHtml}
+<script>window.onload=()=>window.print()<\/script>
+</body>
+</html>`;
+
+  const win = window.open('', '_blank', 'width=1100,height=750');
+  if (!win) { toast('Permite ventanas emergentes para guardar el PDF'); return; }
+  win.document.write(html);
+  win.document.close();
 }
 
 // ===================================================
