@@ -305,6 +305,30 @@
     .noclass-active { background: rgba(234,179,8,.15) !important; color: var(--warn) !important; border-color: rgba(234,179,8,.3) !important; }
     .dot-noclass { color: var(--text-3); font-size: .85rem; }
 
+    /* ── Multi-session attendance ────────────────────────── */
+    .att-row.partial { border-color: var(--warn); }
+    .sessions-wrap { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+    .session-item  { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+    .session-lbl   { font-size: .68rem; font-weight: 700; color: var(--text-3); letter-spacing: .04em; text-transform: uppercase; }
+    .dot-partial   { color: var(--warn); font-weight: 700; }
+
+    /* ── Report: current week column highlight ───────────── */
+    .cur-wk { background: rgba(60,184,120,.09) !important; }
+    thead .cur-wk { color: var(--accent) !important; background: rgba(60,184,120,.14) !important; border-bottom: 2px solid var(--accent) !important; }
+
+    /* ── Report week navigator ───────────────────────────── */
+    .report-week-nav {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      padding: 12px 20px;
+      margin-bottom: 16px;
+    }
+    .report-week-nav-info { flex: 1; text-align: center; font-weight: 700; font-size: .875rem; }
+
     /* ── Responsive ─────────────────────────────────────── */
     @media (max-width: 640px) {
       header { flex-wrap: wrap; }
@@ -453,6 +477,14 @@
         <button class="btn btn-primary btn-sm" onclick="exportCSV()">↓ Exportar CSV</button>
         <button class="btn btn-ghost   btn-sm" onclick="exportPDF()">⎙ Guardar PDF</button>
       </div>
+    </div>
+
+    <div class="report-week-nav" id="report-week-nav">
+      <button id="btn-report-prev" class="btn btn-ghost btn-sm" onclick="changeWeek(-1)">← Anterior</button>
+      <div class="report-week-nav-info">
+        <span id="report-cur-week-label">—</span>
+      </div>
+      <button id="btn-report-next" class="btn btn-ghost btn-sm" onclick="changeWeek(1)">Siguiente →</button>
     </div>
 
     <div class="report-materia-header" id="report-header" style="display:none">
@@ -642,7 +674,7 @@ function changeWeek(delta) {
   if (newKey > getWeekKey(new Date())) return; // no ir a semanas futuras
   state.currentWeekKey = newKey;
   save();
-  renderAttendance();
+  renderCurrentTab();
 }
 
 function jumpToDate(val) {
@@ -651,7 +683,7 @@ function jumpToDate(val) {
   if (newKey > getWeekKey(new Date())) { toast('No puedes ir a semanas futuras'); return; }
   state.currentWeekKey = newKey;
   save();
-  renderAttendance();
+  renderCurrentTab();
 }
 
 // ===================================================
@@ -907,15 +939,30 @@ function clearMateria() {
 //  ASISTENCIA
 // ===================================================
 function ensureWeek(m, wk) {
+  const spw = m.sessionsPerWeek || 1;
   if (!m.weeks[wk]) m.weeks[wk] = {};
   m.students.forEach(name => {
-    if (m.weeks[wk][name] === undefined) m.weeks[wk][name] = false;
+    const cur = m.weeks[wk][name];
+    if (spw > 1) {
+      if (!Array.isArray(cur)) {
+        // Migrate boolean → array; preserve first session if was present
+        const arr = new Array(spw).fill(false);
+        if (cur === true) arr[0] = true;
+        m.weeks[wk][name] = arr;
+      } else if (cur.length < spw) {
+        // Extend if spw increased
+        while (m.weeks[wk][name].length < spw) m.weeks[wk][name].push(false);
+      }
+    } else {
+      if (cur === undefined) m.weeks[wk][name] = false;
+    }
   });
 }
 
 function renderAttendance() {
-  const m  = currentMateria();
-  const wk = state.currentWeekKey;
+  const m   = currentMateria();
+  const wk  = state.currentWeekKey;
+  const spw = m.sessionsPerWeek || 1;
 
   const monday = weekKeyToMonday(wk);
   const friday = new Date(monday);
@@ -952,13 +999,28 @@ function renderAttendance() {
 
   ensureWeek(m, wk);
 
-  const record  = m.weeks[wk];
-  const total   = m.students.length;
-  const present = m.students.filter(n => record[n]).length;
-  const pct     = total ? Math.round(present / total * 100) : 0;
+  const record = m.weeks[wk];
+
+  // Compute stats (session-level when spw > 1)
+  let pct, statText;
+  if (spw > 1) {
+    let totalSess = 0, presentSess = 0;
+    m.students.forEach(name => {
+      const arr = Array.isArray(record[name]) ? record[name] : new Array(spw).fill(false);
+      presentSess += arr.filter(Boolean).length;
+      totalSess   += arr.length;
+    });
+    pct      = totalSess ? Math.round(presentSess / totalSess * 100) : 0;
+    statText = `${presentSess} / ${totalSess} sesiones presentes (${pct}%) · ${m.name}`;
+  } else {
+    const present = m.students.filter(n => record[n]).length;
+    const total   = m.students.length;
+    pct      = total ? Math.round(present / total * 100) : 0;
+    statText = `${present} / ${total} presentes (${pct}%) · ${m.name}`;
+  }
 
   document.getElementById('week-progress').style.width = pct + '%';
-  document.getElementById('week-stat').textContent     = `${present} / ${total} presentes (${pct}%) · ${m.name}`;
+  document.getElementById('week-stat').textContent     = statText;
 
   if (!m.students.length) {
     grid.innerHTML = `<div class="empty-state"><div class="icon">📋</div><p>Agrega alumnos en la pestaña <strong>Alumnos</strong>.</p></div>`;
@@ -966,12 +1028,35 @@ function renderAttendance() {
   }
 
   grid.innerHTML = m.students.map((name, i) => {
-    const isPresent = record[name];
-    const checked   = isPresent ? 'checked' : '';
-    const rowClass  = isPresent ? 'present' : 'absent';
-    const lblClass  = isPresent ? 'present-txt' : 'absent-txt';
-    const lblText   = isPresent ? 'Presente' : 'Ausente';
-    return `
+    if (spw > 1) {
+      const arr      = Array.isArray(record[name]) ? record[name] : new Array(spw).fill(false);
+      const pCount   = arr.filter(Boolean).length;
+      const rowClass = pCount === spw ? 'present' : pCount === 0 ? 'absent' : 'partial';
+      const sessions = arr.map((checked, si) => `
+        <div class="session-item">
+          <span class="session-lbl">Ses. ${si + 1}</span>
+          <label class="toggle" aria-label="${escHtml(name)} — Sesión ${si + 1}">
+            <input
+              type="checkbox"
+              ${checked ? 'checked' : ''}
+              aria-label="${escHtml(name)}: Sesión ${si + 1} — ${checked ? 'Presente' : 'Ausente'}"
+              onchange="toggleAttendance(${i}, ${si}, this.checked)"
+            />
+            <span class="slider"></span>
+          </label>
+        </div>`).join('');
+      return `
+      <div class="att-row ${rowClass}" id="row-${i}">
+        <div class="att-name"><span class="idx" aria-hidden="true">${i + 1}</span>${escHtml(name)}</div>
+        <div class="sessions-wrap">${sessions}</div>
+      </div>`;
+    } else {
+      const isPresent = record[name];
+      const checked   = isPresent ? 'checked' : '';
+      const rowClass  = isPresent ? 'present' : 'absent';
+      const lblClass  = isPresent ? 'present-txt' : 'absent-txt';
+      const lblText   = isPresent ? 'Presente' : 'Ausente';
+      return `
       <div class="att-row ${rowClass}" id="row-${i}">
         <div class="att-name"><span class="idx" aria-hidden="true">${i + 1}</span>${escHtml(name)}</div>
         <div class="toggle-wrap">
@@ -982,37 +1067,48 @@ function renderAttendance() {
               ${checked}
               aria-label="${escHtml(name)}: ${lblText}"
               aria-describedby="lbl-${i}"
-              onchange="toggleAttendance(${i}, this.checked)"
+              onchange="toggleAttendance(${i}, 0, this.checked)"
             />
             <span class="slider"></span>
           </label>
         </div>
       </div>`;
+    }
   }).join('');
 }
 
-function toggleAttendance(idx, val) {
+function toggleAttendance(idx, sessionIdx, val) {
   const m    = currentMateria();
   const wk   = state.currentWeekKey;
   const name = m.students[idx];
-  m.weeks[wk][name] = val;
-  save();
+  const spw  = m.sessionsPerWeek || 1;
 
-  const statusText = val ? 'Presente' : 'Ausente';
-  document.getElementById(`row-${idx}`).className = `att-row ${val ? 'present' : 'absent'}`;
-  const lbl = document.getElementById(`lbl-${idx}`);
-  lbl.className   = `toggle-label ${val ? 'present-txt' : 'absent-txt'}`;
-  lbl.textContent = statusText;
-  // Actualizar aria-label del checkbox para lectores de pantalla
-  const chk = document.querySelector(`#row-${idx} input[type="checkbox"]`);
-  if (chk) chk.setAttribute('aria-label', `${name}: ${statusText}`);
+  if (spw > 1) {
+    if (!Array.isArray(m.weeks[wk][name])) {
+      m.weeks[wk][name] = new Array(spw).fill(false);
+    }
+    m.weeks[wk][name][sessionIdx] = val;
+    save();
+    renderAttendance();
+  } else {
+    m.weeks[wk][name] = val;
+    save();
 
-  const record  = m.weeks[wk];
-  const total   = m.students.length;
-  const present = m.students.filter(n => record[n]).length;
-  const pct     = total ? Math.round(present / total * 100) : 0;
-  document.getElementById('week-progress').style.width = pct + '%';
-  document.getElementById('week-stat').textContent     = `${present} / ${total} presentes (${pct}%) · ${m.name}`;
+    const statusText = val ? 'Presente' : 'Ausente';
+    document.getElementById(`row-${idx}`).className = `att-row ${val ? 'present' : 'absent'}`;
+    const lbl = document.getElementById(`lbl-${idx}`);
+    lbl.className   = `toggle-label ${val ? 'present-txt' : 'absent-txt'}`;
+    lbl.textContent = statusText;
+    const chk = document.querySelector(`#row-${idx} input[type="checkbox"]`);
+    if (chk) chk.setAttribute('aria-label', `${name}: ${statusText}`);
+
+    const record  = m.weeks[wk];
+    const total   = m.students.length;
+    const present = m.students.filter(n => record[n]).length;
+    const pct     = total ? Math.round(present / total * 100) : 0;
+    document.getElementById('week-progress').style.width = pct + '%';
+    document.getElementById('week-stat').textContent     = `${present} / ${total} presentes (${pct}%) · ${m.name}`;
+  }
 }
 
 function toggleNoClass() {
@@ -1026,10 +1122,13 @@ function toggleNoClass() {
 }
 
 function markAll(val) {
-  const m  = currentMateria();
-  const wk = state.currentWeekKey;
+  const m   = currentMateria();
+  const wk  = state.currentWeekKey;
+  const spw = m.sessionsPerWeek || 1;
   ensureWeek(m, wk);
-  m.students.forEach(name => { m.weeks[wk][name] = val; });
+  m.students.forEach(name => {
+    m.weeks[wk][name] = spw > 1 ? new Array(spw).fill(val) : val;
+  });
   save();
   renderAttendance();
 }
@@ -1070,7 +1169,15 @@ function refreshReport(materiaId) {
     const endWk   = getWeekKey(endMon);
     weeks = weeks.filter(wk => wk >= startWk && wk <= endWk);
   }
-  const noClassWks = m.noClassWeeks || {};
+  const noClassWks  = m.noClassWeeks || {};
+  const curWk       = state.currentWeekKey;
+
+  // Update report week nav
+  const curWkLabel    = document.getElementById('report-cur-week-label');
+  const reportNextBtn = document.getElementById('btn-report-next');
+  const reportPrevBtn = document.getElementById('btn-report-prev');
+  if (curWkLabel)    curWkLabel.textContent = `Semana ${curWk}`;
+  if (reportNextBtn) reportNextBtn.disabled = curWk >= getWeekKey(new Date());
 
   // Report header
   const rHeader = document.getElementById('report-header');
@@ -1089,21 +1196,28 @@ function refreshReport(materiaId) {
   }
   document.getElementById('report-materia-sub').textContent = subParts.join(' · ');
 
-  // Per-student tallies for global stats (skip noClass weeks)
+  // Per-student tallies for global stats (session-level, skip noClass weeks)
   let totalP = 0, totalPos = 0, atRiskCount = 0, lostCount = 0;
   studs.forEach(name => {
     let p = 0, a = 0;
     weeks.forEach(wk => {
       if (noClassWks[wk]) return;
-      const val = m.weeks[wk]?.[name];
-      if (val === true)  { p++; totalP++; }
-      if (val !== undefined) totalPos++;
-      if (val === false) a++;
+      const raw = m.weeks[wk]?.[name];
+      if (raw === undefined) return;
+      if (spw > 1) {
+        const arr = Array.isArray(raw) ? raw : [raw, ...new Array(spw - 1).fill(false)];
+        const pp  = arr.filter(Boolean).length;
+        p += pp; a += arr.length - pp;
+      } else {
+        if (raw === true)  p++;
+        if (raw === false) a++;
+      }
     });
+    totalP   += p;
+    totalPos += p + a;
     if (hasCfg && lossThresh !== null) {
-      const absSess = a * spw;
-      if (absSess >= lossThresh)                         lostCount++;
-      else if (absSess >= Math.floor(lossThresh * 0.75)) atRiskCount++;
+      if (a >= lossThresh)                         lostCount++;
+      else if (a >= Math.floor(lossThresh * 0.75)) atRiskCount++;
     }
   });
   const globalPct = totalPos ? Math.round(totalP / totalPos * 100) : 0;
@@ -1137,9 +1251,12 @@ function refreshReport(materiaId) {
     <tr>
       <th>#</th>
       <th>Alumno</th>
-      ${weeks.map(wk => `<th title="${wk}${noClassWks[wk] ? ' · Sin clases' : ''}" ${noClassWks[wk] ? 'style="color:var(--text-3)"' : ''}>${shortWeekLabel(wk)}</th>`).join('')}
-      <th>${hasCfg && spw > 1 ? 'Ses. presentes' : 'Presentes'}</th>
-      <th>${hasCfg && spw > 1 ? 'Ses. ausentes'  : 'Ausentes'}</th>
+      ${weeks.map(wk => {
+        const cc = wk === curWk ? ' cur-wk' : '';
+        return `<th class="week-cell${cc}" title="${wk}${noClassWks[wk] ? ' · Sin clases' : ''}" ${noClassWks[wk] ? 'style="color:var(--text-3)"' : ''}>${shortWeekLabel(wk)}</th>`;
+      }).join('')}
+      <th>Presentes</th>
+      <th>Ausentes</th>
       <th>% Asistencia</th>
       ${hasCfg ? '<th>Estado</th>' : ''}
     </tr>`;
@@ -1147,11 +1264,22 @@ function refreshReport(materiaId) {
   document.getElementById('report-tbody').innerHTML = studs.map((name, i) => {
     let p = 0, a = 0;
     const cells = weeks.map(wk => {
-      if (noClassWks[wk]) return `<td class="week-cell"><span class="dot-noclass" title="Sin clases">—</span></td>`;
-      const val = m.weeks[wk]?.[name];
-      if (val === true)  { p++; return `<td class="week-cell"><span class="dot-present">●</span></td>`; }
-      if (val === false) { a++; return `<td class="week-cell"><span class="dot-absent">●</span></td>`; }
-      return `<td class="week-cell"><span class="dot-none">○</span></td>`;
+      const cc = wk === curWk ? ' cur-wk' : '';
+      if (noClassWks[wk]) return `<td class="week-cell${cc}"><span class="dot-noclass" title="Sin clases">—</span></td>`;
+      const raw = m.weeks[wk]?.[name];
+      if (raw === undefined) return `<td class="week-cell${cc}"><span class="dot-none">○</span></td>`;
+      if (spw > 1) {
+        const arr = Array.isArray(raw) ? raw : [raw, ...new Array(spw - 1).fill(false)];
+        const pp  = arr.filter(Boolean).length;
+        p += pp; a += arr.length - pp;
+        const frac    = `${pp}/${spw}`;
+        const dotCls  = pp === spw ? 'dot-present' : pp === 0 ? 'dot-absent' : 'dot-partial';
+        return `<td class="week-cell${cc}"><span class="${dotCls}">${frac}</span></td>`;
+      } else {
+        if (raw === true)  { p++; return `<td class="week-cell${cc}"><span class="dot-present">●</span></td>`; }
+        if (raw === false) { a++; return `<td class="week-cell${cc}"><span class="dot-absent">●</span></td>`;  }
+        return `<td class="week-cell${cc}"><span class="dot-none">○</span></td>`;
+      }
     }).join('');
 
     const total = p + a;
@@ -1164,11 +1292,10 @@ function refreshReport(materiaId) {
 
     let estadoCell = '';
     if (hasCfg && lossThresh !== null) {
-      const absSess   = a * spw;
-      const remaining = lossThresh - absSess;
-      if (absSess >= lossThresh) {
+      const remaining = lossThresh - a;
+      if (a >= lossThresh) {
         estadoCell = `<td><span class="badge badge-red">Perdida</span></td>`;
-      } else if (absSess >= Math.floor(lossThresh * 0.75)) {
+      } else if (a >= Math.floor(lossThresh * 0.75)) {
         estadoCell = `<td><span class="badge badge-yellow" title="Faltan ${remaining} faltas para perder">En riesgo</span></td>`;
       } else {
         estadoCell = `<td><span class="badge badge-green" title="Puede faltar ${remaining} sesiones más">OK</span></td>`;
@@ -1180,8 +1307,8 @@ function refreshReport(materiaId) {
         <td style="color:var(--text-muted);font-size:.8rem">${i + 1}</td>
         <td><strong>${escHtml(name)}</strong></td>
         ${cells}
-        <td class="cell-present">${p * spw}</td>
-        <td class="cell-absent">${a * spw}</td>
+        <td class="cell-present">${p}</td>
+        <td class="cell-absent">${a}</td>
         <td class="cell-pct"><span class="badge ${badge}">${pct}%</span></td>
         ${estadoCell}
       </tr>`;
@@ -1303,14 +1430,21 @@ function exportPDF() {
 
   if (!studs.length || !weeks.length) { toast('No hay datos para el PDF'); return; }
 
-  // Pre-compute totals per student (using all active weeks)
+  // Pre-compute totals per student (session-level)
   const totals = studs.map(name => {
     let p = 0, a = 0;
     weeks.forEach(wk => {
       if (noClassWks[wk]) return;
-      const v = m.weeks[wk]?.[name];
-      if (v === true)  p++;
-      if (v === false) a++;
+      const raw = m.weeks[wk]?.[name];
+      if (raw === undefined) return;
+      if (spw > 1) {
+        const arr = Array.isArray(raw) ? raw : [raw, ...new Array(spw - 1).fill(false)];
+        const pp  = arr.filter(Boolean).length;
+        p += pp; a += arr.length - pp;
+      } else {
+        if (raw === true)  p++;
+        if (raw === false) a++;
+      }
     });
     return { p, a };
   });
@@ -1352,22 +1486,29 @@ function exportPDF() {
 
       let estadoText = '', estadoCls = '';
       if (hasCfg && lossThresh !== null) {
-        const absSess = a * spw;
-        if (absSess >= lossThresh)                         { estadoText = 'Perdida';    estadoCls = 'lost'; }
-        else if (absSess >= Math.floor(lossThresh * 0.75)) { estadoText = 'En riesgo';  estadoCls = 'risk'; }
-        else                                               { estadoText = 'OK';          estadoCls = 'ok';   }
+        if (a >= lossThresh)                         { estadoText = 'Perdida';   estadoCls = 'lost'; }
+        else if (a >= Math.floor(lossThresh * 0.75)) { estadoText = 'En riesgo'; estadoCls = 'risk'; }
+        else                                         { estadoText = 'OK';        estadoCls = 'ok';   }
       }
 
       const cells = chunkWks.map(wk => {
         if (noClassWks[wk]) return '<td class="c-nc">—</td>';
-        const v = m.weeks[wk]?.[name];
-        if (v === true)  return '<td class="c-p">P</td>';
-        if (v === false) return '<td class="c-a">A</td>';
-        return '<td class="c-none">·</td>';
+        const raw = m.weeks[wk]?.[name];
+        if (raw === undefined) return '<td class="c-none">·</td>';
+        if (spw > 1) {
+          const arr = Array.isArray(raw) ? raw : [raw, ...new Array(spw - 1).fill(false)];
+          const pp  = arr.filter(Boolean).length;
+          const cls = pp === spw ? 'c-p' : pp === 0 ? 'c-a' : 'c-part';
+          return `<td class="${cls}">${pp}/${spw}</td>`;
+        } else {
+          if (raw === true)  return '<td class="c-p">P</td>';
+          if (raw === false) return '<td class="c-a">A</td>';
+          return '<td class="c-none">·</td>';
+        }
       }).join('');
 
       const statsCells = isLast
-        ? `<td class="c-stat">${p * spw}</td><td class="c-stat">${a * spw}</td><td class="c-pct ${pctCls}">${pct}%</td>${hasCfg ? `<td class="c-estado ${estadoCls}">${estadoText}</td>` : ''}`
+        ? `<td class="c-stat">${p}</td><td class="c-stat">${a}</td><td class="c-pct ${pctCls}">${pct}%</td>${hasCfg ? `<td class="c-estado ${estadoCls}">${estadoText}</td>` : ''}`
         : '<td class="c-cont">···</td>';
 
       return `<tr><td class="c-num">${i + 1}</td><td class="c-name">${escHtml(name)}</td>${cells}${statsCells}</tr>`;
@@ -1410,6 +1551,7 @@ function exportPDF() {
   .th-stat{width:38px}.th-pct{width:34px}.th-estado{width:58px}.th-cont{width:24px;color:#ccc}
   .c-p{color:#16a34a;font-weight:700;background:rgba(22,163,74,.07)}
   .c-a{color:#dc2626;font-weight:700;background:rgba(220,38,38,.07)}
+  .c-part{color:#b45309;font-weight:700;background:rgba(180,83,9,.07)}
   .c-nc{color:#bbb}.c-none{color:#d0d0d0}.c-cont{color:#ccc}
   .c-stat{font-weight:700}.c-pct{font-weight:800}
   .nc-label{font-size:7px;display:block;letter-spacing:.03em}
@@ -1462,18 +1604,25 @@ function exportCSV() {
     let p = 0, a = 0;
     const cells = weeks.map(wk => {
       if (noClassWks[wk]) return 'NC';
-      const v = m.weeks[wk]?.[name];
-      if (v === true)  { p++; return 'P'; }
-      if (v === false) { a++; return 'A'; }
-      return '-';
+      const raw = m.weeks[wk]?.[name];
+      if (raw === undefined) return '-';
+      if (spw > 1) {
+        const arr = Array.isArray(raw) ? raw : [raw, ...new Array(spw - 1).fill(false)];
+        const pp  = arr.filter(Boolean).length;
+        p += pp; a += arr.length - pp;
+        return `${pp}/${spw}`;
+      } else {
+        if (raw === true)  { p++; return 'P'; }
+        if (raw === false) { a++; return 'A'; }
+        return '-';
+      }
     });
     const total = p + a;
     let estado = '';
     if (hasCfg && lossThresh !== null) {
-      const absSess = a * spw;
-      estado = absSess >= lossThresh ? 'Perdida' : absSess >= Math.floor(lossThresh * 0.75) ? 'En riesgo' : 'OK';
+      estado = a >= lossThresh ? 'Perdida' : a >= Math.floor(lossThresh * 0.75) ? 'En riesgo' : 'OK';
     }
-    return [name, ...cells, p * spw, a * spw, `${total ? Math.round(p/total*100) : 0}%`, ...(hasCfg ? [estado] : [])];
+    return [name, ...cells, p, a, `${total ? Math.round(p/total*100) : 0}%`, ...(hasCfg ? [estado] : [])];
   });
 
   const csv  = [header, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
