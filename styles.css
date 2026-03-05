@@ -149,6 +149,7 @@ body {
 /* ─── INPUTS ──────────────────────────────────────────────── */
 input[type="text"],
 input[type="date"],
+input[type="number"],
 textarea,
 select {
   background: var(--surface-2);
@@ -164,6 +165,7 @@ select {
 }
 input[type="text"]:focus,
 input[type="date"]:focus,
+input[type="number"]:focus,
 textarea:focus,
 select:focus    { border-color: var(--accent); }
 textarea        { resize: vertical; min-height: 120px; }

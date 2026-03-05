@@ -366,7 +366,7 @@
   <select id="materia-select" onchange="switchMateria(this.value)" aria-label="Materia activa"></select>
   <div class="materia-actions">
     <button class="btn btn-primary btn-sm" onclick="promptNewMateria()">+ Nueva</button>
-    <button class="btn btn-ghost   btn-sm" onclick="promptRenameMateria()">Renombrar</button>
+    <button class="btn btn-ghost   btn-sm" onclick="promptConfigMateria()">⚙ Configurar</button>
     <button class="btn btn-danger  btn-sm" onclick="promptDeleteMateria()">Eliminar</button>
   </div>
 </div>
@@ -459,6 +459,45 @@
 </main>
 
 <div id="toast"></div>
+
+<!-- Modal configuración de materia -->
+<div class="modal-backdrop" id="modal-materia-cfg">
+  <div class="modal" style="max-width:520px">
+    <h2 id="matcfg-title">Configurar materia</h2>
+    <p  id="matcfg-body" style="color:var(--text-2);font-size:.875rem;margin-bottom:16px"></p>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div>
+        <label style="display:block;font-size:.78rem;font-weight:700;color:var(--text-2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em">Nombre</label>
+        <input type="text" id="matcfg-name" placeholder="Ej: Matemáticas, Historia…" />
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <label style="display:block;font-size:.78rem;font-weight:700;color:var(--text-2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em">Fecha de inicio</label>
+          <input type="date" id="matcfg-start" />
+        </div>
+        <div>
+          <label style="display:block;font-size:.78rem;font-weight:700;color:var(--text-2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em">Duración (semanas)</label>
+          <input type="number" id="matcfg-weeks" min="1" max="52" value="16" />
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <label style="display:block;font-size:.78rem;font-weight:700;color:var(--text-2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em">Sesiones / semana</label>
+          <input type="number" id="matcfg-spw" min="1" max="7" value="2" />
+        </div>
+        <div>
+          <label style="display:block;font-size:.78rem;font-weight:700;color:var(--text-2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em">% máx. de faltas</label>
+          <input type="number" id="matcfg-loss" min="1" max="99" value="25" />
+        </div>
+      </div>
+      <div id="matcfg-summary" style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-md);padding:12px;font-size:.82rem;color:var(--text-2);line-height:1.7"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeMateriaModal()">Cancelar</button>
+      <button class="btn btn-primary" id="matcfg-confirm">Crear</button>
+    </div>
+  </div>
+</div>
 
 <!-- Modal genérico -->
 <div class="modal-backdrop" id="modal">
@@ -608,24 +647,37 @@ function switchMateria(id) {
 }
 
 function promptNewMateria() {
-  openModal({
+  openMateriaModal({
     title: 'Nueva materia',
-    body: 'Ingresa el nombre de la materia:',
-    input: true,
-    placeholder: 'Ej: Matemáticas, Historia…',
-    confirmLabel: 'Crear',
-    confirmClass: 'btn-primary',
-    onConfirm: (name) => {
-      name = name.trim();
-      if (!name) { toast('El nombre no puede estar vacío'); return; }
-      if (state.materias.find(m => m.name === name)) { toast('Ya existe esa materia'); return; }
+    confirmLabel: 'Crear materia',
+    onConfirm: (cfg) => {
+      if (state.materias.find(m => m.name === cfg.name)) { toast('Ya existe esa materia'); return; }
       const id = generateId();
-      state.materias.push({ id, name, students: [], weeks: {} });
+      state.materias.push({ id, students: [], weeks: {}, ...cfg });
       state.currentMateriaId = id;
+      if (cfg.startDate) state.currentWeekKey = getWeekKey(new Date(cfg.startDate + 'T12:00:00'));
       save();
       renderMateriaBar();
       renderCurrentTab();
-      toast(`Materia "${name}" creada`);
+      toast(`Materia "${cfg.name}" creada`);
+    }
+  });
+}
+
+function promptConfigMateria() {
+  const m = currentMateria();
+  openMateriaModal({
+    title: `Configurar "${m.name}"`,
+    confirmLabel: 'Guardar cambios',
+    materia: m,
+    onConfirm: (cfg) => {
+      const dup = state.materias.find(x => x.name === cfg.name && x.id !== m.id);
+      if (dup) { toast('Ya existe una materia con ese nombre'); return; }
+      Object.assign(m, cfg);
+      save();
+      renderMateriaBar();
+      renderCurrentTab();
+      toast('Configuración guardada');
     }
   });
 }
@@ -669,6 +721,46 @@ function promptDeleteMateria() {
       toast(`Materia "${m.name}" eliminada`);
     }
   });
+}
+
+// ===================================================
+//  MODAL CONFIGURACIÓN DE MATERIA
+// ===================================================
+let _materiaModalCb = null;
+
+function openMateriaModal({ title, confirmLabel, materia, onConfirm }) {
+  document.getElementById('matcfg-title').textContent = title;
+  document.getElementById('matcfg-confirm').textContent = confirmLabel || 'Guardar';
+
+  document.getElementById('matcfg-name').value  = materia?.name  || '';
+  document.getElementById('matcfg-start').value = materia?.startDate || new Date().toISOString().slice(0, 10);
+  document.getElementById('matcfg-weeks').value = materia?.totalWeeks      ?? 16;
+  document.getElementById('matcfg-spw').value   = materia?.sessionsPerWeek ?? 2;
+  document.getElementById('matcfg-loss').value  = materia?.lossPercent     ?? 25;
+
+  updateMatcfgSummary();
+  document.getElementById('modal-materia-cfg').classList.add('open');
+  setTimeout(() => document.getElementById('matcfg-name').focus(), 50);
+  _materiaModalCb = onConfirm;
+}
+
+function closeMateriaModal() {
+  document.getElementById('modal-materia-cfg').classList.remove('open');
+  _materiaModalCb = null;
+}
+
+function updateMatcfgSummary() {
+  const weeks = parseInt(document.getElementById('matcfg-weeks').value) || 0;
+  const spw   = parseInt(document.getElementById('matcfg-spw').value)   || 1;
+  const loss  = parseFloat(document.getElementById('matcfg-loss').value) || 25;
+  const total  = weeks * spw;
+  const maxAbs = total ? Math.floor(total * loss / 100) : 0;
+  const el = document.getElementById('matcfg-summary');
+  if (total > 0) {
+    el.innerHTML = `<strong>${total}</strong> sesiones totales &nbsp;·&nbsp; se pierde con <strong style="color:var(--absent)">${maxAbs}</strong> faltas o más (${loss}% de ${total})`;
+  } else {
+    el.textContent = 'Completa los campos para ver el resumen.';
+  }
 }
 
 // ===================================================
@@ -899,34 +991,65 @@ function refreshReport(materiaId) {
   const id     = materiaId || picker.value || state.currentMateriaId;
   picker.value = id;
 
-  const m      = getMateriaById(id) || currentMateria();
-  const weeks  = Object.keys(m.weeks).sort();
-  const studs  = m.students;
+  const m     = getMateriaById(id) || currentMateria();
+  const weeks = Object.keys(m.weeks).sort();
+  const studs = m.students;
 
-  // Header de materia en reporte
+  // Course config
+  const spw        = m.sessionsPerWeek || 1;
+  const totalSess  = (m.totalWeeks || 0) * spw;
+  const lossThresh = totalSess ? Math.floor(totalSess * ((m.lossPercent ?? 25) / 100)) : null;
+  const hasCfg     = !!m.totalWeeks;
+
+  // Report header
   const rHeader = document.getElementById('report-header');
-  const rName   = document.getElementById('report-materia-name');
-  const rSub    = document.getElementById('report-materia-sub');
   rHeader.style.display = 'flex';
-  rName.textContent = m.name;
-  rSub.textContent  = `${studs.length} alumno${studs.length !== 1 ? 's' : ''} · ${weeks.length} semana${weeks.length !== 1 ? 's' : ''} registrada${weeks.length !== 1 ? 's' : ''}`;
+  document.getElementById('report-materia-name').textContent = m.name;
+  const subParts = [
+    `${studs.length} alumno${studs.length !== 1 ? 's' : ''}`,
+    `${weeks.length} semana${weeks.length !== 1 ? 's' : ''} registrada${weeks.length !== 1 ? 's' : ''}`
+  ];
+  if (hasCfg) {
+    if (m.startDate) {
+      const startLbl = new Date(m.startDate + 'T12:00:00').toLocaleDateString('es-MX', { day:'2-digit', month:'short', year:'numeric' });
+      subParts.push(`inicio: ${startLbl}`);
+    }
+    subParts.push(`${m.totalWeeks} sem · ${spw} ses/sem · máx. ${m.lossPercent ?? 25}% faltas (${lossThresh} ses.)`);
+  }
+  document.getElementById('report-materia-sub').textContent = subParts.join(' · ');
 
-  // Stats globales
-  let totalP = 0, totalPos = 0;
+  // Per-student tallies for global stats
+  let totalP = 0, totalPos = 0, atRiskCount = 0, lostCount = 0;
   studs.forEach(name => {
+    let p = 0, a = 0;
     weeks.forEach(wk => {
-      totalPos++;
-      if (m.weeks[wk][name]) totalP++;
+      const val = m.weeks[wk]?.[name];
+      if (val === true)  { p++; totalP++; }
+      if (val !== undefined) totalPos++;
+      if (val === false) a++;
     });
+    if (hasCfg && lossThresh !== null) {
+      const absSess = a * spw;
+      if (absSess >= lossThresh)                    lostCount++;
+      else if (absSess >= Math.floor(lossThresh * 0.75)) atRiskCount++;
+    }
   });
   const globalPct = totalPos ? Math.round(totalP / totalPos * 100) : 0;
 
-  document.getElementById('stats-grid').innerHTML = `
+  let statsHtml = `
     <div class="stat-card"><div class="stat-val">${studs.length}</div><div class="stat-lbl">Alumnos</div></div>
     <div class="stat-card"><div class="stat-val">${weeks.length}</div><div class="stat-lbl">Semanas</div></div>
-    <div class="stat-card"><div class="stat-val">${globalPct}%</div><div class="stat-lbl">Asistencia global</div></div>
-    <div class="stat-card"><div class="stat-val">${totalP}</div><div class="stat-lbl">Total presencias</div></div>
-  `;
+    <div class="stat-card"><div class="stat-val">${globalPct}%</div><div class="stat-lbl">Asistencia global</div></div>`;
+  if (hasCfg) {
+    statsHtml += `
+    <div class="stat-card"><div class="stat-val">${totalSess}</div><div class="stat-lbl">Sesiones totales</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--warn)">${atRiskCount}</div><div class="stat-lbl">En riesgo</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--absent)">${lostCount}</div><div class="stat-lbl">Perdida</div></div>`;
+  } else {
+    statsHtml += `
+    <div class="stat-card"><div class="stat-val">${totalP}</div><div class="stat-lbl">Total presencias</div></div>`;
+  }
+  document.getElementById('stats-grid').innerHTML = statsHtml;
 
   if (!studs.length || !weeks.length) {
     document.getElementById('report-thead').innerHTML = '';
@@ -935,14 +1058,18 @@ function refreshReport(materiaId) {
     return;
   }
 
+  // Attendance % threshold based on configured lossPercent
+  const passThresh = hasCfg ? (100 - (m.lossPercent ?? 25)) : 80;
+
   document.getElementById('report-thead').innerHTML = `
     <tr>
       <th>#</th>
       <th>Alumno</th>
       ${weeks.map(wk => `<th title="${wk}">${shortWeekLabel(wk)}</th>`).join('')}
-      <th>Presentes</th>
-      <th>Ausentes</th>
+      <th>${hasCfg && spw > 1 ? 'Ses. presentes' : 'Presentes'}</th>
+      <th>${hasCfg && spw > 1 ? 'Ses. ausentes'  : 'Ausentes'}</th>
       <th>% Asistencia</th>
+      ${hasCfg ? '<th>Estado</th>' : ''}
     </tr>`;
 
   document.getElementById('report-tbody').innerHTML = studs.map((name, i) => {
@@ -953,17 +1080,37 @@ function refreshReport(materiaId) {
       if (val === false) { a++; return `<td class="week-cell"><span class="dot-absent">●</span></td>`; }
       return `<td class="week-cell"><span class="dot-none">○</span></td>`;
     }).join('');
-    const total   = p + a;
-    const pct     = total ? Math.round(p / total * 100) : 0;
-    const badge   = pct >= 80 ? 'badge-green' : pct >= 60 ? 'badge-yellow' : 'badge-red';
+
+    const total = p + a;
+    const pct   = total ? Math.round(p / total * 100) : 0;
+    const badge = pct >= passThresh
+      ? 'badge-green'
+      : pct >= passThresh * 0.85
+        ? 'badge-yellow'
+        : 'badge-red';
+
+    let estadoCell = '';
+    if (hasCfg && lossThresh !== null) {
+      const absSess   = a * spw;
+      const remaining = lossThresh - absSess;
+      if (absSess >= lossThresh) {
+        estadoCell = `<td><span class="badge badge-red">Perdida</span></td>`;
+      } else if (absSess >= Math.floor(lossThresh * 0.75)) {
+        estadoCell = `<td><span class="badge badge-yellow" title="Faltan ${remaining} faltas para perder">En riesgo</span></td>`;
+      } else {
+        estadoCell = `<td><span class="badge badge-green" title="Puede faltar ${remaining} sesiones más">OK</span></td>`;
+      }
+    }
+
     return `
       <tr>
         <td style="color:var(--text-muted);font-size:.8rem">${i + 1}</td>
         <td><strong>${escHtml(name)}</strong></td>
         ${cells}
-        <td class="cell-present">${p}</td>
-        <td class="cell-absent">${a}</td>
+        <td class="cell-present">${p * spw}</td>
+        <td class="cell-absent">${a * spw}</td>
         <td class="cell-pct"><span class="badge ${badge}">${pct}%</span></td>
+        ${estadoCell}
       </tr>`;
   }).join('');
 }
@@ -1067,7 +1214,12 @@ function exportCSV() {
 
   if (!m.students.length || !weeks.length) { toast('No hay datos para exportar'); return; }
 
-  const header = ['Alumno', ...weeks.map(wk => `${wk} (${shortWeekLabel(wk)})`), 'Presentes', 'Ausentes', '% Asistencia'];
+  const spw        = m.sessionsPerWeek || 1;
+  const totalSess  = (m.totalWeeks || 0) * spw;
+  const lossThresh = totalSess ? Math.floor(totalSess * ((m.lossPercent ?? 25) / 100)) : null;
+  const hasCfg     = !!m.totalWeeks;
+
+  const header = ['Alumno', ...weeks.map(wk => `${wk} (${shortWeekLabel(wk)})`), 'Ses. presentes', 'Ses. ausentes', '% Asistencia', ...(hasCfg ? ['Estado'] : [])];
   const rows = m.students.map(name => {
     let p = 0, a = 0;
     const cells = weeks.map(wk => {
@@ -1077,7 +1229,12 @@ function exportCSV() {
       return '-';
     });
     const total = p + a;
-    return [name, ...cells, p, a, `${total ? Math.round(p/total*100) : 0}%`];
+    let estado = '';
+    if (hasCfg && lossThresh !== null) {
+      const absSess = a * spw;
+      estado = absSess >= lossThresh ? 'Perdida' : absSess >= Math.floor(lossThresh * 0.75) ? 'En riesgo' : 'OK';
+    }
+    return [name, ...cells, p * spw, a * spw, `${total ? Math.round(p/total*100) : 0}%`, ...(hasCfg ? [estado] : [])];
   });
 
   const csv  = [header, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
@@ -1147,6 +1304,34 @@ document.getElementById('modal').addEventListener('click', e => {
 document.getElementById('modal-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') { if (_modalConfirmCb) _modalConfirmCb(); closeModal(); }
   if (e.key === 'Escape') closeModal();
+});
+
+// Materia config modal listeners
+document.getElementById('matcfg-confirm').addEventListener('click', () => {
+  const name = document.getElementById('matcfg-name').value.trim();
+  if (!name) { toast('El nombre no puede estar vacío'); return; }
+  const cfg = {
+    name,
+    startDate:       document.getElementById('matcfg-start').value || null,
+    totalWeeks:      parseInt(document.getElementById('matcfg-weeks').value) || 0,
+    sessionsPerWeek: parseInt(document.getElementById('matcfg-spw').value)   || 1,
+    lossPercent:     parseFloat(document.getElementById('matcfg-loss').value) || 25
+  };
+  if (_materiaModalCb) _materiaModalCb(cfg);
+  closeMateriaModal();
+});
+
+document.getElementById('modal-materia-cfg').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeMateriaModal();
+});
+
+document.getElementById('matcfg-name').addEventListener('keydown', e => {
+  if (e.key === 'Enter')  document.getElementById('matcfg-confirm').click();
+  if (e.key === 'Escape') closeMateriaModal();
+});
+
+['matcfg-weeks', 'matcfg-spw', 'matcfg-loss'].forEach(id => {
+  document.getElementById(id).addEventListener('input', updateMatcfgSummary);
 });
 
 window.addEventListener('beforeunload', (e) => {

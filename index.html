@@ -538,12 +538,14 @@
         <li class="step">
           <div class="step-num" aria-hidden="true">1</div>
           <div class="step-body">
-            <h3>Crea tus materias</h3>
-            <p>En la barra superior está el selector de materia. Usa el botón <span class="tag tag-accent">+ Nueva</span> para crear la primera (por ejemplo: Matemáticas, Historia, Inglés).</p>
+            <h3>Crea y configura tus materias</h3>
+            <p>En la barra superior está el selector de materia. Usa el botón <span class="tag tag-accent">+ Nueva</span> para crear la primera. Se abrirá un formulario donde defines el nombre y los parámetros del curso:</p>
             <ul>
-              <li>Puedes crear todas las materias que necesites.</li>
-              <li>Usa <span class="tag">✎ Renombrar</span> para cambiar el nombre en cualquier momento.</li>
-              <li>El selector cambia de materia al instante y todo el contenido se actualiza.</li>
+              <li><strong>Fecha de inicio</strong> — el lunes de la primera semana de clases.</li>
+              <li><strong>Duración</strong> — número de semanas del curso (ej. 16).</li>
+              <li><strong>Sesiones / semana</strong> — cuántas veces se reúne la clase (ej. 2).</li>
+              <li><strong>% máx. de faltas</strong> — porcentaje de sesiones que puede faltar antes de perder la materia (ej. 25%). La app calcula automáticamente cuántas sesiones son.</li>
+              <li>Usa <span class="tag">⚙ Configurar</span> en cualquier momento para ajustar estos parámetros.</li>
             </ul>
           </div>
         </li>
@@ -579,7 +581,9 @@
             <h3>Consulta el reporte</h3>
             <p>En la pestaña <span class="tag">Reporte</span> selecciona la materia para ver estadísticas globales y el historial semana a semana de cada alumno.</p>
             <ul>
-              <li>Los porcentajes se muestran con indicadores de color: <span class="tag tag-green">≥ 80%</span> <span class="tag tag-warn">≥ 60%</span> <span class="tag tag-red">&lt; 60%</span></li>
+              <li>Los porcentajes se ajustan al umbral configurado: si el máx. de faltas es 25%, el verde empieza desde 75% de asistencia.</li>
+              <li>Si configuraste el curso verás una columna <strong>Estado</strong> con <span class="tag tag-green">OK</span>, <span class="tag tag-warn">En riesgo</span> o <span class="tag tag-red">Perdida</span> por alumno, calculado en sesiones.</li>
+              <li>Las tarjetas de resumen muestran cuántos alumnos están en riesgo o han perdido la materia.</li>
               <li>Puedes ver el reporte de cualquier materia sin cambiar la materia activa.</li>
             </ul>
           </div>
