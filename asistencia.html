@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Control de Asistencia</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface2: #334155;
+      --border: #475569;
+      --accent: #6366f1;
+      --accent-hover: #818cf8;
+      --present: #22c55e;
+      --absent: #ef4444;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --radius: 10px;
+      --shadow: 0 4px 24px rgba(0,0,0,.4);
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ===== HEADER ===== */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    header h1 { font-size: 1.15rem; font-weight: 700; white-space: nowrap; }
+    header h1 span { color: var(--accent); }
+
+    .tabs { display: flex; gap: 4px; }
+    .tab-btn {
+      padding: 7px 16px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-size: .85rem;
+      font-weight: 600;
+      background: transparent;
+      color: var(--text-muted);
+      transition: all .15s;
+    }
+    .tab-btn.active { background: var(--accent); color: #fff; }
+    .tab-btn:hover:not(.active) { background: var(--surface2); color: var(--text); }
+
+    .file-actions { display: flex; align-items: center; gap: 8px; }
+    .save-indicator { font-size: .75rem; color: var(--text-muted); white-space: nowrap; }
+    .save-indicator.dirty { color: #fbbf24; }
+
+    /* ===== MATERIA BAR ===== */
+    .materia-bar {
+      background: #131e30;
+      border-bottom: 1px solid var(--border);
+      padding: 10px 24px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      position: sticky;
+      top: 57px;
+      z-index: 99;
+    }
+    .materia-bar-label {
+      font-size: .8rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      white-space: nowrap;
+    }
+    #materia-select {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 7px 12px;
+      font-size: .9rem;
+      font-weight: 600;
+      outline: none;
+      cursor: pointer;
+      min-width: 200px;
+      max-width: 340px;
+    }
+    #materia-select:focus { border-color: var(--accent); }
+    .materia-actions { display: flex; gap: 6px; margin-left: 4px; }
+    .materia-chip {
+      font-size: .75rem;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 99px;
+      background: rgba(99,102,241,.15);
+      color: var(--accent);
+      border: 1px solid rgba(99,102,241,.3);
+      white-space: nowrap;
+    }
+
+    /* ===== LAYOUT ===== */
+    main {
+      flex: 1;
+      padding: 28px 24px;
+      max-width: 1100px;
+      width: 100%;
+      margin: 0 auto;
+    }
+    .view { display: none; }
+    .view.active { display: block; }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .section-title { font-size: 1.05rem; font-weight: 700; }
+
+    /* ===== BUTTONS ===== */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px 18px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-size: .875rem;
+      font-weight: 600;
+      transition: all .15s;
+    }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-ghost { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    .btn-ghost:hover { background: var(--border); }
+    .btn-danger { background: #7f1d1d; color: #fca5a5; border: 1px solid #991b1b; }
+    .btn-danger:hover { background: #991b1b; }
+    .btn-success { background: #14532d; color: #86efac; }
+    .btn-success:hover { background: #166534; }
+    .btn-save { background: #064e3b; color: #6ee7b7; border: 1px solid #065f46; }
+    .btn-save:hover { background: #065f46; }
+    .btn-load { background: #1e3a5f; color: #93c5fd; border: 1px solid #1d4ed8; }
+    .btn-load:hover { background: #1d4ed8; color: #fff; }
+    .btn-sm { padding: 5px 12px; font-size: .8rem; }
+
+    /* ===== INPUTS ===== */
+    input[type="text"], input[type="date"], textarea, select {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 9px 12px;
+      font-size: .9rem;
+      outline: none;
+      transition: border-color .15s;
+      width: 100%;
+    }
+    input[type="text"]:focus, input[type="date"]:focus, textarea:focus { border-color: var(--accent); }
+    textarea { resize: vertical; min-height: 120px; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    /* ===== ALUMNOS ===== */
+    .add-form { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
+    .student-list { display: flex; flex-direction: column; gap: 8px; }
+    .student-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 16px;
+      animation: fadeIn .2s ease;
+    }
+    .student-item span { display: flex; align-items: center; gap: 10px; font-weight: 500; }
+    .student-num {
+      background: var(--surface);
+      color: var(--text-muted);
+      font-size: .75rem;
+      padding: 2px 7px;
+      border-radius: 99px;
+    }
+    .import-section { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); }
+    .import-section label { display: block; margin-bottom: 8px; font-size: .875rem; color: var(--text-muted); }
+
+    /* ===== ASISTENCIA ===== */
+    .week-nav {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 20px;
+      margin-bottom: 20px;
+      justify-content: space-between;
+    }
+    .week-info { text-align: center; }
+    .week-label { font-size: 1rem; font-weight: 700; }
+    .week-date { font-size: .8rem; color: var(--text-muted); margin-top: 2px; }
+    .week-stat { font-size: .8rem; color: var(--text-muted); }
+    .progress-bar-wrap { background: var(--surface2); border-radius: 99px; height: 6px; margin-top: 6px; overflow: hidden; }
+    .progress-bar { height: 100%; background: var(--present); border-radius: 99px; transition: width .3s; }
+
+    .attendance-grid { display: flex; flex-direction: column; gap: 8px; }
+    .att-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 18px;
+      transition: border-color .15s;
+    }
+    .att-row.present { border-color: var(--present); }
+    .att-row.absent  { border-color: var(--absent); }
+    .att-name { font-weight: 500; display: flex; align-items: center; gap: 10px; }
+    .att-name .idx { color: var(--text-muted); font-size: .8rem; }
+
+    .toggle-wrap { display: flex; align-items: center; gap: 12px; }
+    .toggle-label { font-size: .85rem; font-weight: 600; min-width: 60px; text-align: right; }
+    .toggle-label.present-txt { color: var(--present); }
+    .toggle-label.absent-txt  { color: var(--absent); }
+
+    .toggle { position: relative; width: 52px; height: 28px; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute;
+      inset: 0;
+      background: var(--absent);
+      border-radius: 99px;
+      cursor: pointer;
+      transition: background .2s;
+    }
+    .slider::before {
+      content: '';
+      position: absolute;
+      width: 22px; height: 22px;
+      left: 3px; top: 3px;
+      background: white;
+      border-radius: 50%;
+      transition: transform .2s;
+    }
+    .toggle input:checked + .slider { background: var(--present); }
+    .toggle input:checked + .slider::before { transform: translateX(24px); }
+
+    .bulk-actions { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+
+    /* ===== REPORTE ===== */
+    .report-materia-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 20px;
+      margin-bottom: 20px;
+    }
+    .report-materia-name { font-size: 1.2rem; font-weight: 800; }
+    .report-materia-sub { font-size: .8rem; color: var(--text-muted); margin-top: 2px; }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      text-align: center;
+    }
+    .stat-val { font-size: 2rem; font-weight: 800; color: var(--accent); }
+    .stat-lbl { font-size: .8rem; color: var(--text-muted); margin-top: 4px; }
+
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+    thead tr { background: var(--surface2); }
+    thead th {
+      padding: 12px 14px;
+      text-align: left;
+      font-weight: 700;
+      color: var(--text-muted);
+      font-size: .8rem;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    tbody tr:hover { background: rgba(99,102,241,.05); }
+    tbody td { padding: 11px 14px; border-bottom: 1px solid var(--border); }
+    .cell-present { color: var(--present); font-weight: 700; text-align: center; }
+    .cell-absent  { color: var(--absent);  font-weight: 700; text-align: center; }
+    .cell-pct     { font-weight: 700; text-align: center; }
+
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: .75rem; font-weight: 700; }
+    .badge-green  { background: rgba(34,197,94,.15);  color: var(--present); }
+    .badge-yellow { background: rgba(234,179,8,.15);   color: #eab308; }
+    .badge-red    { background: rgba(239,68,68,.15);   color: var(--absent); }
+
+    td.week-cell { text-align: center; font-size: .8rem; }
+    .dot-present { color: var(--present); }
+    .dot-absent  { color: var(--absent); }
+    .dot-none    { color: var(--border); }
+
+    /* Reporte: selector de materia */
+    .report-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+    #report-materia-picker {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 7px 12px;
+      font-size: .9rem;
+      font-weight: 600;
+      outline: none;
+      cursor: pointer;
+    }
+    #report-materia-picker:focus { border-color: var(--accent); }
+
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+    .empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
+    .empty-state p { font-size: 1rem; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ===== TOAST ===== */
+    #toast {
+      position: fixed;
+      bottom: 24px; right: 24px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 18px;
+      font-size: .875rem;
+      font-weight: 600;
+      box-shadow: var(--shadow);
+      opacity: 0;
+      transform: translateY(10px);
+      transition: all .25s;
+      pointer-events: none;
+      z-index: 999;
+    }
+    #toast.show { opacity: 1; transform: translateY(0); }
+
+    /* ===== MODAL ===== */
+    .modal-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.6);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      display: none;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      width: 100%; max-width: 480px;
+      box-shadow: var(--shadow);
+    }
+    .modal h2 { margin-bottom: 8px; font-size: 1.1rem; }
+    .modal p  { color: var(--text-muted); font-size: .9rem; margin-bottom: 4px; }
+    .modal input { margin-top: 12px; }
+    .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+
+    @media (max-width: 640px) {
+      header { flex-wrap: wrap; }
+      .save-indicator { display: none; }
+      .materia-bar { top: auto; position: relative; }
+    }
+
+    @media print {
+      header, .materia-bar, .report-controls, .file-actions { display: none !important; }
+      .view { display: block !important; }
+      #view-alumnos, #view-asistencia { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ===== HEADER ===== -->
+<header>
+  <h1>Control de <span>Asistencia</span></h1>
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="alumnos"    onclick="switchTab('alumnos',this)">Alumnos</button>
+    <button class="tab-btn"        data-tab="asistencia" onclick="switchTab('asistencia',this)">Asistencia</button>
+    <button class="tab-btn"        data-tab="reporte"    onclick="switchTab('reporte',this)">Reporte</button>
+  </nav>
+  <div class="file-actions">
+    <span class="save-indicator" id="save-indicator">● Guardado</span>
+    <button class="btn btn-save btn-sm" onclick="saveToFile()" title="Descargar .json con todos los datos">↓ Guardar</button>
+    <label class="btn btn-load btn-sm" style="cursor:pointer" title="Cargar un .json guardado">
+      ↑ Cargar
+      <input type="file" accept=".json" style="display:none" onchange="loadFromFile(this)" />
+    </label>
+  </div>
+</header>
+
+<!-- ===== MATERIA BAR ===== -->
+<div class="materia-bar">
+  <span class="materia-bar-label">Materia</span>
+  <select id="materia-select" onchange="switchMateria(this.value)"></select>
+  <div class="materia-actions">
+    <button class="btn btn-primary btn-sm" onclick="promptNewMateria()">+ Nueva</button>
+    <button class="btn btn-ghost   btn-sm" onclick="promptRenameMateria()">✎ Renombrar</button>
+    <button class="btn btn-danger  btn-sm" onclick="promptDeleteMateria()">✕ Eliminar</button>
+  </div>
+</div>
+
+<main>
+
+  <!-- ============================  TAB 1 · ALUMNOS  ============================ -->
+  <section id="view-alumnos" class="view active">
+    <div class="section-header">
+      <span class="section-title">Alumnos</span>
+      <span id="count-badge" style="color:var(--text-muted);font-size:.875rem"></span>
+    </div>
+
+    <div class="card add-form" style="margin-bottom:20px">
+      <input type="text" id="input-name" placeholder="Nombre del alumno…" onkeydown="if(event.key==='Enter') addStudent()" />
+      <button class="btn btn-primary" onclick="addStudent()">+ Agregar</button>
+    </div>
+
+    <div id="student-list" class="student-list"></div>
+
+    <div class="import-section card" style="margin-top:20px">
+      <label>Importar lista (un nombre por línea)</label>
+      <textarea id="bulk-input" placeholder="Juan García&#10;María López&#10;Carlos Martínez&#10;…"></textarea>
+      <div style="display:flex;gap:10px;margin-top:10px">
+        <button class="btn btn-ghost" onclick="importBulk()">Importar lista</button>
+        <button class="btn btn-danger btn-sm" onclick="clearMateria()">Borrar alumnos de esta materia</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================  TAB 2 · ASISTENCIA  ============================ -->
+  <section id="view-asistencia" class="view">
+    <div class="week-nav">
+      <button class="btn btn-ghost btn-sm" onclick="changeWeek(-1)">← Anterior</button>
+      <div class="week-info">
+        <div class="week-label" id="week-label">Semana —</div>
+        <div class="week-date"  id="week-date-range">—</div>
+        <div class="progress-bar-wrap" style="width:200px;margin:6px auto 0">
+          <div class="progress-bar" id="week-progress" style="width:0%"></div>
+        </div>
+        <div class="week-stat" id="week-stat">0 / 0 presentes</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="changeWeek(1)">Siguiente →</button>
+    </div>
+
+    <div class="bulk-actions">
+      <button class="btn btn-success btn-sm" onclick="markAll(true)">✓ Todos presentes</button>
+      <button class="btn btn-danger  btn-sm" onclick="markAll(false)">✗ Todos ausentes</button>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+        <label style="font-size:.8rem;color:var(--text-muted)">Ir a semana:</label>
+        <input type="date" id="jump-date" style="width:160px" onchange="jumpToDate(this.value)" />
+      </div>
+    </div>
+
+    <div id="attendance-grid" class="attendance-grid"></div>
+  </section>
+
+  <!-- ============================  TAB 3 · REPORTE  ============================ -->
+  <section id="view-reporte" class="view">
+
+    <div class="report-controls">
+      <label style="font-size:.8rem;color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px">Ver reporte de:</label>
+      <select id="report-materia-picker" onchange="refreshReport(this.value)"></select>
+      <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost   btn-sm" onclick="refreshReport()">↻ Actualizar</button>
+        <button class="btn btn-primary btn-sm" onclick="exportCSV()">↓ Exportar CSV</button>
+        <button class="btn btn-ghost   btn-sm" onclick="window.print()">⎙ Imprimir</button>
+      </div>
+    </div>
+
+    <div class="report-materia-header" id="report-header" style="display:none">
+      <div>
+        <div class="report-materia-name" id="report-materia-name">—</div>
+        <div class="report-materia-sub"  id="report-materia-sub">—</div>
+      </div>
+    </div>
+
+    <div class="stats-grid" id="stats-grid"></div>
+
+    <div class="card">
+      <div class="table-wrap">
+        <table id="report-table">
+          <thead id="report-thead"></thead>
+          <tbody id="report-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<div id="toast"></div>
+
+<!-- Modal genérico -->
+<div class="modal-backdrop" id="modal">
+  <div class="modal">
+    <h2 id="modal-title">—</h2>
+    <p  id="modal-body">—</p>
+    <input type="text" id="modal-input" placeholder="" style="display:none" />
+    <div class="modal-footer">
+      <button class="btn btn-ghost"  onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-danger" id="modal-confirm">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===================================================
+//  ESTADO
+// ===================================================
+const STORAGE_KEY = 'attendance_app_v2';
+
+let state = {
+  materias: [],          // [{ id, name, students:[], weeks:{} }]
+  currentMateriaId: null,
+  currentWeekKey: null
+};
+
+// ===================================================
+//  HELPERS DE MATERIA
+// ===================================================
+function generateId() {
+  return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+}
+
+function currentMateria() {
+  return state.materias.find(m => m.id === state.currentMateriaId) || state.materias[0];
+}
+
+function getMateriaById(id) {
+  return state.materias.find(m => m.id === id);
+}
+
+// ===================================================
+//  PERSISTENCIA
+// ===================================================
+let isDirty = false;
+
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  markDirty();
+}
+
+function load() {
+  try {
+    // Intentar v2
+    let raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      // Migrar desde v1 si existe
+      const v1 = localStorage.getItem('attendance_app_v1');
+      if (v1) {
+        const old = JSON.parse(v1);
+        const id = generateId();
+        state = {
+          materias: [{
+            id,
+            name: 'General',
+            students: old.students || [],
+            weeks: old.weeks || {}
+          }],
+          currentMateriaId: id,
+          currentWeekKey: old.currentWeekKey || getWeekKey(new Date())
+        };
+        save();
+        toast('Datos migrados a formato v2');
+        return;
+      }
+    }
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed.materias) state = parsed;
+    }
+  } catch(e) {}
+
+  // Asegurar al menos una materia
+  if (!state.materias || !state.materias.length) {
+    const id = generateId();
+    state.materias = [{ id, name: 'General', students: [], weeks: {} }];
+    state.currentMateriaId = id;
+  }
+  if (!state.currentMateriaId) state.currentMateriaId = state.materias[0].id;
+  if (!state.currentWeekKey)  state.currentWeekKey  = getWeekKey(new Date());
+}
+
+// ===================================================
+//  SEMANAS
+// ===================================================
+function getWeekKey(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const day = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2,'0')}`;
+}
+
+function weekKeyToMonday(wk) {
+  const [year, w] = wk.split('-W').map(Number);
+  const jan4    = new Date(Date.UTC(year, 0, 4));
+  const monday  = new Date(jan4);
+  monday.setUTCDate(jan4.getUTCDate() - (jan4.getUTCDay() || 7) + 1 + (w - 1) * 7);
+  return monday;
+}
+
+function formatDate(d) {
+  return d.toLocaleDateString('es-MX', { day:'2-digit', month:'short', year:'numeric' });
+}
+
+function changeWeek(delta) {
+  const monday = weekKeyToMonday(state.currentWeekKey);
+  monday.setUTCDate(monday.getUTCDate() + delta * 7);
+  state.currentWeekKey = getWeekKey(monday);
+  save();
+  renderAttendance();
+}
+
+function jumpToDate(val) {
+  if (!val) return;
+  state.currentWeekKey = getWeekKey(new Date(val + 'T12:00:00'));
+  save();
+  renderAttendance();
+}
+
+// ===================================================
+//  MATERIA BAR
+// ===================================================
+function renderMateriaBar() {
+  const sel = document.getElementById('materia-select');
+  sel.innerHTML = state.materias.map(m =>
+    `<option value="${m.id}" ${m.id === state.currentMateriaId ? 'selected' : ''}>${escHtml(m.name)}</option>`
+  ).join('');
+}
+
+function switchMateria(id) {
+  state.currentMateriaId = id;
+  save();
+  renderCurrentTab();
+}
+
+function promptNewMateria() {
+  openModal({
+    title: 'Nueva materia',
+    body: 'Ingresa el nombre de la materia:',
+    input: true,
+    placeholder: 'Ej: Matemáticas, Historia…',
+    confirmLabel: 'Crear',
+    confirmClass: 'btn-primary',
+    onConfirm: (name) => {
+      name = name.trim();
+      if (!name) { toast('El nombre no puede estar vacío'); return; }
+      if (state.materias.find(m => m.name === name)) { toast('Ya existe esa materia'); return; }
+      const id = generateId();
+      state.materias.push({ id, name, students: [], weeks: {} });
+      state.currentMateriaId = id;
+      save();
+      renderMateriaBar();
+      renderCurrentTab();
+      toast(`Materia "${name}" creada`);
+    }
+  });
+}
+
+function promptRenameMateria() {
+  const m = currentMateria();
+  openModal({
+    title: 'Renombrar materia',
+    body: `Nombre actual: "${m.name}"`,
+    input: true,
+    placeholder: 'Nuevo nombre…',
+    initialValue: m.name,
+    confirmLabel: 'Guardar',
+    confirmClass: 'btn-primary',
+    onConfirm: (name) => {
+      name = name.trim();
+      if (!name) { toast('El nombre no puede estar vacío'); return; }
+      m.name = name;
+      save();
+      renderMateriaBar();
+      renderCurrentTab();
+      toast(`Renombrada a "${name}"`);
+    }
+  });
+}
+
+function promptDeleteMateria() {
+  if (state.materias.length <= 1) { toast('Debes tener al menos una materia'); return; }
+  const m = currentMateria();
+  openModal({
+    title: `¿Eliminar "${m.name}"?`,
+    body: 'Se perderán todos los alumnos y registros de asistencia de esta materia.',
+    confirmLabel: 'Eliminar',
+    confirmClass: 'btn-danger',
+    onConfirm: () => {
+      state.materias = state.materias.filter(x => x.id !== m.id);
+      state.currentMateriaId = state.materias[0].id;
+      save();
+      renderMateriaBar();
+      renderCurrentTab();
+      toast(`Materia "${m.name}" eliminada`);
+    }
+  });
+}
+
+// ===================================================
+//  TABS
+// ===================================================
+let currentTab = 'alumnos';
+
+function switchTab(tab, btn) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`view-${tab}`).classList.add('active');
+  if (btn) btn.classList.add('active');
+  else document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+  currentTab = tab;
+  renderCurrentTab();
+}
+
+function renderCurrentTab() {
+  if (currentTab === 'alumnos')    renderStudents();
+  if (currentTab === 'asistencia') renderAttendance();
+  if (currentTab === 'reporte')    refreshReport();
+}
+
+// ===================================================
+//  ALUMNOS
+// ===================================================
+function renderStudents() {
+  const m    = currentMateria();
+  const list = document.getElementById('student-list');
+  const cnt  = document.getElementById('count-badge');
+  cnt.textContent = `${m.students.length} alumno${m.students.length !== 1 ? 's' : ''} · ${m.name}`;
+
+  if (!m.students.length) {
+    list.innerHTML = `<div class="empty-state"><div class="icon">👥</div><p>Agrega alumnos a <strong>${escHtml(m.name)}</strong>.</p></div>`;
+    return;
+  }
+  list.innerHTML = m.students.map((name, i) => `
+    <div class="student-item">
+      <span><span class="student-num">${i + 1}</span>${escHtml(name)}</span>
+      <button class="btn btn-danger btn-sm" onclick="removeStudent(${i})">✕</button>
+    </div>
+  `).join('');
+}
+
+function addStudent() {
+  const m     = currentMateria();
+  const input = document.getElementById('input-name');
+  const name  = input.value.trim();
+  if (!name) return;
+  if (m.students.includes(name)) { toast('Ya existe ese alumno'); return; }
+  m.students.push(name);
+  save();
+  renderStudents();
+  input.value = '';
+  input.focus();
+}
+
+function removeStudent(idx) {
+  const m    = currentMateria();
+  const name = m.students[idx];
+  openModal({
+    title: `¿Eliminar a "${name}"?`,
+    body: 'Se perderán sus registros de asistencia en esta materia.',
+    confirmLabel: 'Eliminar',
+    confirmClass: 'btn-danger',
+    onConfirm: () => {
+      m.students.splice(idx, 1);
+      Object.keys(m.weeks).forEach(wk => { delete m.weeks[wk][name]; });
+      save();
+      renderStudents();
+      toast(`"${name}" eliminado`);
+    }
+  });
+}
+
+function importBulk() {
+  const m     = currentMateria();
+  const raw   = document.getElementById('bulk-input').value;
+  const names = raw.split('\n').map(s => s.trim()).filter(Boolean);
+  if (!names.length) { toast('No hay nombres para importar'); return; }
+  let added = 0;
+  names.forEach(name => {
+    if (!m.students.includes(name)) { m.students.push(name); added++; }
+  });
+  save();
+  renderStudents();
+  document.getElementById('bulk-input').value = '';
+  toast(`${added} alumno${added !== 1 ? 's' : ''} importado${added !== 1 ? 's' : ''} en ${m.name}`);
+}
+
+function clearMateria() {
+  const m = currentMateria();
+  openModal({
+    title: `¿Borrar alumnos de "${m.name}"?`,
+    body: 'Se eliminarán todos los alumnos y registros de asistencia de esta materia.',
+    confirmLabel: 'Borrar',
+    confirmClass: 'btn-danger',
+    onConfirm: () => {
+      m.students = [];
+      m.weeks    = {};
+      save();
+      renderStudents();
+      toast('Alumnos borrados');
+    }
+  });
+}
+
+// ===================================================
+//  ASISTENCIA
+// ===================================================
+function ensureWeek(m, wk) {
+  if (!m.weeks[wk]) m.weeks[wk] = {};
+  m.students.forEach(name => {
+    if (m.weeks[wk][name] === undefined) m.weeks[wk][name] = false;
+  });
+}
+
+function renderAttendance() {
+  const m  = currentMateria();
+  const wk = state.currentWeekKey;
+  ensureWeek(m, wk);
+
+  const monday = weekKeyToMonday(wk);
+  const friday = new Date(monday);
+  friday.setUTCDate(monday.getUTCDate() + 4);
+
+  document.getElementById('week-label').textContent     = `Semana ${wk}`;
+  document.getElementById('week-date-range').textContent = `${formatDate(monday)} — ${formatDate(friday)}`;
+
+  const record  = m.weeks[wk];
+  const total   = m.students.length;
+  const present = m.students.filter(n => record[n]).length;
+  const pct     = total ? Math.round(present / total * 100) : 0;
+
+  document.getElementById('week-progress').style.width = pct + '%';
+  document.getElementById('week-stat').textContent     = `${present} / ${total} presentes (${pct}%) · ${m.name}`;
+
+  const grid = document.getElementById('attendance-grid');
+  if (!m.students.length) {
+    grid.innerHTML = `<div class="empty-state"><div class="icon">📋</div><p>Agrega alumnos en la pestaña <strong>Alumnos</strong>.</p></div>`;
+    return;
+  }
+
+  grid.innerHTML = m.students.map((name, i) => {
+    const checked  = record[name] ? 'checked' : '';
+    const rowClass = record[name] ? 'present' : 'absent';
+    const lblClass = record[name] ? 'present-txt' : 'absent-txt';
+    const lblText  = record[name] ? 'Presente' : 'Ausente';
+    return `
+      <div class="att-row ${rowClass}" id="row-${i}">
+        <div class="att-name"><span class="idx">${i + 1}</span>${escHtml(name)}</div>
+        <div class="toggle-wrap">
+          <span class="toggle-label ${lblClass}" id="lbl-${i}">${lblText}</span>
+          <label class="toggle">
+            <input type="checkbox" ${checked} onchange="toggleAttendance(${i}, this.checked)" />
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function toggleAttendance(idx, val) {
+  const m    = currentMateria();
+  const wk   = state.currentWeekKey;
+  const name = m.students[idx];
+  m.weeks[wk][name] = val;
+  save();
+
+  document.getElementById(`row-${idx}`).className = `att-row ${val ? 'present' : 'absent'}`;
+  const lbl = document.getElementById(`lbl-${idx}`);
+  lbl.className   = `toggle-label ${val ? 'present-txt' : 'absent-txt'}`;
+  lbl.textContent = val ? 'Presente' : 'Ausente';
+
+  const record  = m.weeks[wk];
+  const total   = m.students.length;
+  const present = m.students.filter(n => record[n]).length;
+  const pct     = total ? Math.round(present / total * 100) : 0;
+  document.getElementById('week-progress').style.width = pct + '%';
+  document.getElementById('week-stat').textContent     = `${present} / ${total} presentes (${pct}%) · ${m.name}`;
+}
+
+function markAll(val) {
+  const m  = currentMateria();
+  const wk = state.currentWeekKey;
+  ensureWeek(m, wk);
+  m.students.forEach(name => { m.weeks[wk][name] = val; });
+  save();
+  renderAttendance();
+}
+
+// ===================================================
+//  REPORTE
+// ===================================================
+function renderReportPicker() {
+  const picker = document.getElementById('report-materia-picker');
+  const cur    = picker.value || state.currentMateriaId;
+  picker.innerHTML = state.materias.map(m =>
+    `<option value="${m.id}" ${m.id === cur ? 'selected' : ''}>${escHtml(m.name)}</option>`
+  ).join('');
+}
+
+function refreshReport(materiaId) {
+  renderReportPicker();
+
+  const picker = document.getElementById('report-materia-picker');
+  const id     = materiaId || picker.value || state.currentMateriaId;
+  picker.value = id;
+
+  const m      = getMateriaById(id) || currentMateria();
+  const weeks  = Object.keys(m.weeks).sort();
+  const studs  = m.students;
+
+  // Header de materia en reporte
+  const rHeader = document.getElementById('report-header');
+  const rName   = document.getElementById('report-materia-name');
+  const rSub    = document.getElementById('report-materia-sub');
+  rHeader.style.display = 'flex';
+  rName.textContent = m.name;
+  rSub.textContent  = `${studs.length} alumno${studs.length !== 1 ? 's' : ''} · ${weeks.length} semana${weeks.length !== 1 ? 's' : ''} registrada${weeks.length !== 1 ? 's' : ''}`;
+
+  // Stats globales
+  let totalP = 0, totalPos = 0;
+  studs.forEach(name => {
+    weeks.forEach(wk => {
+      totalPos++;
+      if (m.weeks[wk][name]) totalP++;
+    });
+  });
+  const globalPct = totalPos ? Math.round(totalP / totalPos * 100) : 0;
+
+  document.getElementById('stats-grid').innerHTML = `
+    <div class="stat-card"><div class="stat-val">${studs.length}</div><div class="stat-lbl">Alumnos</div></div>
+    <div class="stat-card"><div class="stat-val">${weeks.length}</div><div class="stat-lbl">Semanas</div></div>
+    <div class="stat-card"><div class="stat-val">${globalPct}%</div><div class="stat-lbl">Asistencia global</div></div>
+    <div class="stat-card"><div class="stat-val">${totalP}</div><div class="stat-lbl">Total presencias</div></div>
+  `;
+
+  if (!studs.length || !weeks.length) {
+    document.getElementById('report-thead').innerHTML = '';
+    document.getElementById('report-tbody').innerHTML =
+      `<tr><td colspan="10"><div class="empty-state"><div class="icon">📊</div><p>No hay datos en <strong>${escHtml(m.name)}</strong>.</p></div></td></tr>`;
+    return;
+  }
+
+  document.getElementById('report-thead').innerHTML = `
+    <tr>
+      <th>#</th>
+      <th>Alumno</th>
+      ${weeks.map(wk => `<th title="${wk}">${shortWeekLabel(wk)}</th>`).join('')}
+      <th>Presentes</th>
+      <th>Ausentes</th>
+      <th>% Asistencia</th>
+    </tr>`;
+
+  document.getElementById('report-tbody').innerHTML = studs.map((name, i) => {
+    let p = 0, a = 0;
+    const cells = weeks.map(wk => {
+      const val = m.weeks[wk]?.[name];
+      if (val === true)  { p++; return `<td class="week-cell"><span class="dot-present">●</span></td>`; }
+      if (val === false) { a++; return `<td class="week-cell"><span class="dot-absent">●</span></td>`; }
+      return `<td class="week-cell"><span class="dot-none">○</span></td>`;
+    }).join('');
+    const total   = p + a;
+    const pct     = total ? Math.round(p / total * 100) : 0;
+    const badge   = pct >= 80 ? 'badge-green' : pct >= 60 ? 'badge-yellow' : 'badge-red';
+    return `
+      <tr>
+        <td style="color:var(--text-muted);font-size:.8rem">${i + 1}</td>
+        <td><strong>${escHtml(name)}</strong></td>
+        ${cells}
+        <td class="cell-present">${p}</td>
+        <td class="cell-absent">${a}</td>
+        <td class="cell-pct"><span class="badge ${badge}">${pct}%</span></td>
+      </tr>`;
+  }).join('');
+}
+
+function shortWeekLabel(wk) {
+  return weekKeyToMonday(wk).toLocaleDateString('es-MX', { day:'2-digit', month:'short' });
+}
+
+// ===================================================
+//  GUARDAR / CARGAR JSON
+// ===================================================
+function markDirty() {
+  isDirty = true;
+  const el = document.getElementById('save-indicator');
+  if (!el) return;
+  el.textContent = '● Sin guardar';
+  el.classList.add('dirty');
+}
+
+function markClean(filename) {
+  isDirty = false;
+  const el = document.getElementById('save-indicator');
+  if (!el) return;
+  el.textContent = `● Guardado${filename ? ' · ' + filename : ''}`;
+  el.classList.remove('dirty');
+}
+
+function saveToFile() {
+  const dateStr = new Date().toISOString().slice(0, 10);
+  const filename = `asistencia_${dateStr}.json`;
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+  markClean(filename);
+  toast(`Guardado: ${filename}`);
+}
+
+function loadFromFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const parsed = JSON.parse(e.target.result);
+      // Validar formato v2
+      if (!Array.isArray(parsed.materias)) {
+        // Intentar migrar desde v1
+        if (Array.isArray(parsed.students)) {
+          const id = generateId();
+          state = {
+            materias: [{ id, name: 'General', students: parsed.students, weeks: parsed.weeks || {} }],
+            currentMateriaId: id,
+            currentWeekKey: parsed.currentWeekKey || getWeekKey(new Date())
+          };
+        } else {
+          toast('Archivo inválido'); return;
+        }
+      } else {
+        state = parsed;
+      }
+      if (!state.currentWeekKey) state.currentWeekKey = getWeekKey(new Date());
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      renderMateriaBar();
+      renderCurrentTab();
+      markClean(file.name);
+      toast(`Datos cargados desde "${file.name}"`);
+    } catch(err) {
+      toast('Error al leer el archivo JSON');
+    }
+    input.value = '';
+  };
+  reader.readAsText(file);
+}
+
+// ===================================================
+//  EXPORTAR CSV
+// ===================================================
+function exportCSV() {
+  const picker = document.getElementById('report-materia-picker');
+  const m      = getMateriaById(picker.value) || currentMateria();
+  const weeks  = Object.keys(m.weeks).sort();
+
+  if (!m.students.length || !weeks.length) { toast('No hay datos para exportar'); return; }
+
+  const header = ['Alumno', ...weeks.map(wk => `${wk} (${shortWeekLabel(wk)})`), 'Presentes', 'Ausentes', '% Asistencia'];
+  const rows = m.students.map(name => {
+    let p = 0, a = 0;
+    const cells = weeks.map(wk => {
+      const v = m.weeks[wk]?.[name];
+      if (v === true)  { p++; return 'P'; }
+      if (v === false) { a++; return 'A'; }
+      return '-';
+    });
+    const total = p + a;
+    return [name, ...cells, p, a, `${total ? Math.round(p/total*100) : 0}%`];
+  });
+
+  const csv  = [header, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `asistencia_${m.name.replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast(`CSV exportado: ${m.name}`);
+}
+
+// ===================================================
+//  HELPERS
+// ===================================================
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+// Modal genérico
+let _modalConfirmCb = null;
+
+function openModal({ title, body, input = false, placeholder = '', initialValue = '', confirmLabel = 'Confirmar', confirmClass = 'btn-danger', onConfirm }) {
+  document.getElementById('modal-title').textContent    = title;
+  document.getElementById('modal-body').textContent     = body;
+  const inp = document.getElementById('modal-input');
+  if (input) {
+    inp.style.display   = 'block';
+    inp.placeholder     = placeholder;
+    inp.value           = initialValue;
+    setTimeout(() => inp.focus(), 50);
+  } else {
+    inp.style.display = 'none';
+  }
+  const btn = document.getElementById('modal-confirm');
+  btn.textContent = confirmLabel;
+  btn.className   = `btn ${confirmClass}`;
+  document.getElementById('modal').classList.add('open');
+  _modalConfirmCb = () => {
+    const val = input ? document.getElementById('modal-input').value : null;
+    onConfirm(val);
+  };
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('open');
+  _modalConfirmCb = null;
+}
+
+document.getElementById('modal-confirm').onclick = () => {
+  if (_modalConfirmCb) _modalConfirmCb();
+  closeModal();
+};
+document.getElementById('modal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeModal();
+});
+document.getElementById('modal-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { if (_modalConfirmCb) _modalConfirmCb(); closeModal(); }
+  if (e.key === 'Escape') closeModal();
+});
+
+window.addEventListener('beforeunload', (e) => {
+  if (isDirty) { e.preventDefault(); e.returnValue = ''; }
+});
+
+// ===================================================
+//  INIT
+// ===================================================
+load();
+renderMateriaBar();
+renderStudents();
+markClean();
+document.getElementById('jump-date').value = new Date().toISOString().slice(0, 10);
+</script>
+</body>
+</html>
