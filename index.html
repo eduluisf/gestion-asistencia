@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Control de Asistencia · Guía de uso</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface2: #334155;
+      --border: #475569;
+      --accent: #6366f1;
+      --accent-hover: #818cf8;
+      --present: #22c55e;
+      --absent: #ef4444;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --radius: 12px;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ===== HERO ===== */
+    .hero {
+      background: linear-gradient(135deg, #1e293b 0%, #0f172a 60%, #1a1040 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 72px 24px 64px;
+      text-align: center;
+    }
+    .hero-badge {
+      display: inline-block;
+      background: rgba(99,102,241,.15);
+      border: 1px solid rgba(99,102,241,.35);
+      color: var(--accent);
+      font-size: .8rem;
+      font-weight: 700;
+      padding: 5px 14px;
+      border-radius: 99px;
+      letter-spacing: .5px;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+    .hero h1 {
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      font-weight: 800;
+      letter-spacing: -1px;
+      line-height: 1.15;
+      margin-bottom: 16px;
+    }
+    .hero h1 span { color: var(--accent); }
+    .hero p {
+      font-size: 1.1rem;
+      color: var(--text-muted);
+      max-width: 540px;
+      margin: 0 auto 36px;
+      line-height: 1.7;
+    }
+    .hero-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 1.05rem;
+      font-weight: 700;
+      padding: 14px 32px;
+      border-radius: 10px;
+      text-decoration: none;
+      transition: background .15s, transform .15s;
+      box-shadow: 0 4px 20px rgba(99,102,241,.4);
+    }
+    .hero-cta:hover { background: var(--accent-hover); transform: translateY(-2px); }
+    .hero-sub {
+      display: block;
+      margin-top: 14px;
+      font-size: .8rem;
+      color: var(--text-muted);
+    }
+
+    /* ===== FEATURES ===== */
+    .section {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 64px 24px;
+    }
+    .section-label {
+      font-size: .78rem;
+      font-weight: 700;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 10px;
+    }
+    .section h2 {
+      font-size: clamp(1.4rem, 3vw, 2rem);
+      font-weight: 800;
+      letter-spacing: -.5px;
+      margin-bottom: 12px;
+    }
+    .section > p {
+      color: var(--text-muted);
+      font-size: .95rem;
+      max-width: 560px;
+      line-height: 1.7;
+      margin-bottom: 40px;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+    }
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      transition: border-color .2s, transform .2s;
+    }
+    .feature-card:hover { border-color: var(--accent); transform: translateY(-3px); }
+    .feature-icon {
+      font-size: 1.8rem;
+      margin-bottom: 14px;
+    }
+    .feature-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 8px; }
+    .feature-card p  { font-size: .875rem; color: var(--text-muted); line-height: 1.6; }
+
+    /* ===== TUTORIAL STEPS ===== */
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+    }
+    .steps { display: flex; flex-direction: column; gap: 24px; }
+    .step {
+      display: grid;
+      grid-template-columns: 56px 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+    .step-num {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: rgba(99,102,241,.15);
+      border: 2px solid rgba(99,102,241,.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+    .step-content h3 { font-size: 1rem; font-weight: 700; margin-bottom: 6px; padding-top: 14px; }
+    .step-content p  { font-size: .875rem; color: var(--text-muted); line-height: 1.65; }
+    .step-content ul { margin-top: 8px; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+    .step-content li { font-size: .875rem; color: var(--text-muted); line-height: 1.6; }
+    .step-content .tag {
+      display: inline-block;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px 8px;
+      font-size: .78rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .tag-green  { background: rgba(34,197,94,.12);  border-color: rgba(34,197,94,.3);  color: var(--present); }
+    .tag-red    { background: rgba(239,68,68,.12);  border-color: rgba(239,68,68,.3);  color: var(--absent); }
+    .tag-purple { background: rgba(99,102,241,.12); border-color: rgba(99,102,241,.3); color: var(--accent); }
+
+    /* ===== PERSISTENCIA ===== */
+    .persist-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      margin-top: 0;
+    }
+    .persist-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px;
+    }
+    .persist-card .icon { font-size: 1.5rem; margin-bottom: 12px; }
+    .persist-card h3 { font-size: .95rem; font-weight: 700; margin-bottom: 8px; }
+    .persist-card p  { font-size: .85rem; color: var(--text-muted); line-height: 1.6; }
+    .persist-card .note {
+      margin-top: 10px;
+      font-size: .78rem;
+      color: var(--text-muted);
+      background: var(--surface2);
+      border-radius: 6px;
+      padding: 6px 10px;
+    }
+
+    /* ===== FAQ ===== */
+    .faq { display: flex; flex-direction: column; gap: 12px; }
+    .faq-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .faq-q {
+      width: 100%;
+      background: none;
+      border: none;
+      color: var(--text);
+      font-size: .95rem;
+      font-weight: 600;
+      padding: 18px 20px;
+      text-align: left;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+    .faq-q:hover { background: var(--surface2); }
+    .faq-q .arrow { color: var(--text-muted); font-size: .8rem; transition: transform .2s; flex-shrink: 0; }
+    .faq-item.open .faq-q .arrow { transform: rotate(180deg); }
+    .faq-a {
+      display: none;
+      padding: 0 20px 18px;
+      font-size: .875rem;
+      color: var(--text-muted);
+      line-height: 1.7;
+      border-top: 1px solid var(--border);
+      padding-top: 14px;
+    }
+    .faq-item.open .faq-a { display: block; }
+
+    /* ===== FOOTER ===== */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 28px 24px;
+      text-align: center;
+      font-size: .825rem;
+      color: var(--text-muted);
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    /* ===== CTA BOTTOM ===== */
+    .cta-bottom {
+      background: linear-gradient(135deg, rgba(99,102,241,.12) 0%, rgba(99,102,241,.04) 100%);
+      border-top: 1px solid rgba(99,102,241,.2);
+      padding: 56px 24px;
+      text-align: center;
+    }
+    .cta-bottom h2 { font-size: 1.6rem; font-weight: 800; margin-bottom: 12px; }
+    .cta-bottom p  { color: var(--text-muted); margin-bottom: 28px; font-size: .95rem; }
+
+    @media (max-width: 600px) {
+      .step { grid-template-columns: 44px 1fr; gap: 14px; }
+      .step-num { width: 44px; height: 44px; font-size: 1.1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ===== HERO ===== -->
+<section class="hero">
+  <div class="hero-badge">Herramienta gratuita · Sin cuenta requerida</div>
+  <h1>Control de <span>Asistencia</span><br>Semanal</h1>
+  <p>Gestiona la asistencia de tus alumnos semana a semana, organizada por materias. Genera reportes automáticos y exporta a CSV.</p>
+  <a href="asistencia.html" class="hero-cta">
+    Abrir la aplicación →
+  </a>
+  <span class="hero-sub">Funciona offline · Los datos se guardan en tu dispositivo</span>
+</section>
+
+<!-- ===== CARACTERÍSTICAS ===== -->
+<section class="section">
+  <div class="section-label">Características</div>
+  <h2>Todo lo que necesitas</h2>
+  <p>Una herramienta simple y rápida, sin instalaciones ni cuentas. Abre y empieza.</p>
+
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">📚</div>
+      <h3>Por materias</h3>
+      <p>Crea tantas materias como necesites. Cada una tiene su propia lista de alumnos y sus propios registros.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">✅</div>
+      <h3>Toggle semanal</h3>
+      <p>Marca presentes y ausentes con un switch. Navega entre semanas libremente y edita cuando quieras.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📊</div>
+      <h3>Reporte automático</h3>
+      <p>Visualiza el porcentaje de asistencia por alumno con indicadores de color. Filtra por materia.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📥</div>
+      <h3>Exportar a CSV</h3>
+      <p>Descarga el reporte de cualquier materia en formato CSV, compatible con Excel y Google Sheets.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">💾</div>
+      <h3>Sin perder datos</h3>
+      <p>Guarda un archivo <code style="font-size:.8rem;background:var(--surface2);padding:1px 5px;border-radius:4px">.json</code> y cárgalo en cualquier momento. Tus datos viajan contigo.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">⚡</div>
+      <h3>Sin instalación</h3>
+      <p>Un solo archivo HTML. Sin servidor, sin base de datos, sin conexión a internet. Funciona en cualquier navegador.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="divider" />
+
+<!-- ===== TUTORIAL ===== -->
+<section class="section">
+  <div class="section-label">Tutorial</div>
+  <h2>Cómo usar la app</h2>
+  <p>Sigue estos pasos para empezar a registrar asistencia en minutos.</p>
+
+  <div class="steps">
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <h3>Crea tus materias</h3>
+        <p>
+          En la barra superior verás el selector de materia. Haz clic en
+          <span class="tag tag-purple">+ Nueva</span> para crear tu primera materia
+          (por ejemplo: <em>Matemáticas</em>, <em>Historia</em>, <em>Inglés</em>).
+        </p>
+        <ul>
+          <li>Puedes crear tantas materias como necesites.</li>
+          <li>Usa <span class="tag">✎ Renombrar</span> para cambiar el nombre en cualquier momento.</li>
+          <li>El selector cambia de materia al instante — todo el contenido se actualiza.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <h3>Agrega alumnos</h3>
+        <p>
+          Ve a la pestaña <span class="tag">Alumnos</span> y escribe el nombre de
+          cada alumno, uno por uno, o usa <strong>Importar lista</strong> para
+          pegar varios nombres de golpe (un nombre por línea).
+        </p>
+        <ul>
+          <li>Cada materia tiene su propia lista de alumnos independiente.</li>
+          <li>Puedes copiar y pegar directo desde Excel o un documento de texto.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <h3>Registra la asistencia</h3>
+        <p>
+          Ve a la pestaña <span class="tag">Asistencia</span>. La app abre
+          automáticamente en la semana actual.
+        </p>
+        <ul>
+          <li>Usa el toggle de cada alumno para marcarlo <span class="tag tag-green">Presente</span> o <span class="tag tag-red">Ausente</span>.</li>
+          <li>Usa <span class="tag tag-green">✓ Todos presentes</span> para marcar la clase de golpe y luego ajusta los ausentes.</li>
+          <li>Navega a semanas anteriores o futuras con las flechas ← →.</li>
+          <li>Puedes editar semanas pasadas en cualquier momento.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <h3>Consulta el reporte</h3>
+        <p>
+          Ve a la pestaña <span class="tag">Reporte</span>. Selecciona la materia
+          en el selector del reporte para ver:
+        </p>
+        <ul>
+          <li>Estadísticas globales: alumnos, semanas, % de asistencia total.</li>
+          <li>Tabla con el historial semana a semana por alumno.</li>
+          <li>Badge de color por alumno: <span class="tag tag-green">≥ 80%</span> · <span class="tag" style="background:rgba(234,179,8,.12);border-color:rgba(234,179,8,.3);color:#eab308">≥ 60%</span> · <span class="tag tag-red">&lt; 60%</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-content">
+        <h3>Guarda y exporta</h3>
+        <p>
+          Usa el botón <span class="tag">↓ Guardar</span> del encabezado para
+          descargar un archivo <code style="font-size:.8rem;background:var(--surface2);padding:1px 5px;border-radius:4px">.json</code>
+          con todos tus datos. La próxima vez que abras la app, usa
+          <span class="tag">↑ Cargar</span> para restaurarlos.
+        </p>
+        <ul>
+          <li>El botón <span class="tag">↓ Exportar CSV</span> en el reporte genera un archivo listo para Excel.</li>
+          <li>Si hay cambios sin guardar, el indicador muestra <span style="color:#fbbf24;font-weight:700">● Sin guardar</span>.</li>
+          <li>La app también guarda automáticamente en el navegador como respaldo.</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<hr class="divider" />
+
+<!-- ===== PERSISTENCIA ===== -->
+<section class="section">
+  <div class="section-label">Tus datos</div>
+  <h2>¿Dónde se guarda la información?</h2>
+  <p>La app usa dos niveles de persistencia para que nunca pierdas un registro.</p>
+
+  <div class="persist-grid">
+    <div class="persist-card">
+      <div class="icon">🔄</div>
+      <h3>Guardado automático (localStorage)</h3>
+      <p>Cada cambio se guarda automáticamente en el navegador. Si cierras la pestaña y la vuelves a abrir, todo sigue ahí.</p>
+      <div class="note">⚠️ Se borra si limpias los datos del navegador. Úsalo como respaldo de sesión.</div>
+    </div>
+    <div class="persist-card">
+      <div class="icon">📁</div>
+      <h3>Archivo JSON (recomendado)</h3>
+      <p>Haz clic en <strong>↓ Guardar</strong> para descargar un archivo <code>.json</code> con todos tus datos. Para restaurar, usa <strong>↑ Cargar</strong>.</p>
+      <div class="note">✅ Permanente. No depende del navegador. Puedes usarlo en otro equipo.</div>
+    </div>
+    <div class="persist-card">
+      <div class="icon">📊</div>
+      <h3>CSV para reportes</h3>
+      <p>Desde la pestaña Reporte, exporta un <code>.csv</code> de cualquier materia para abrirlo en Excel o Google Sheets.</p>
+      <div class="note">Solo lectura. No se puede volver a cargar como backup, es para compartir o archivar.</div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider" />
+
+<!-- ===== FAQ ===== -->
+<section class="section" style="padding-bottom:40px">
+  <div class="section-label">Preguntas frecuentes</div>
+  <h2>FAQ</h2>
+  <p style="margin-bottom:32px">Dudas comunes sobre el uso de la app.</p>
+
+  <div class="faq">
+    <div class="faq-item">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        ¿Puedo usar la misma lista de alumnos en varias materias?
+        <span class="arrow">▼</span>
+      </button>
+      <div class="faq-a">
+        No automáticamente, pero puedes copiar la lista: en la materia original ve a <strong>Alumnos</strong>, copia todos los nombres, cambia de materia y usa <strong>Importar lista</strong> para pegarlos.
+      </div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        ¿Qué pasa si elimino una materia?
+        <span class="arrow">▼</span>
+      </button>
+      <div class="faq-a">
+        Se elimina permanentemente con todos sus alumnos y registros de asistencia. La app siempre pide confirmación antes de eliminar. Asegúrate de exportar el CSV antes si necesitas guardar los datos.
+      </div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        ¿Puedo registrar asistencia de días anteriores?
+        <span class="arrow">▼</span>
+      </button>
+      <div class="faq-a">
+        Sí. Usa las flechas ← → para navegar a cualquier semana pasada o futura, o usa el selector de fecha <strong>"Ir a semana"</strong> para saltar directamente.
+      </div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        ¿Funciona en el celular?
+        <span class="arrow">▼</span>
+      </button>
+      <div class="faq-a">
+        Sí, el diseño es responsivo y funciona en navegadores móviles. Para mejor experiencia se recomienda usarla en escritorio.
+      </div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        ¿Cómo abro el CSV en Excel?
+        <span class="arrow">▼</span>
+      </button>
+      <div class="faq-a">
+        El CSV se exporta con codificación UTF-8 con BOM, que Excel detecta automáticamente. Solo abre el archivo descargado con Excel o arrástralo a una hoja de Google Sheets.
+      </div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        ¿Puedo usar la app sin internet?
+        <span class="arrow">▼</span>
+      </button>
+      <div class="faq-a">
+        Sí. Una vez que cargues la página, funciona completamente offline. También puedes descargar el archivo <code>asistencia.html</code> y abrirlo directamente desde tu computadora sin necesidad de internet.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== CTA BOTTOM ===== -->
+<div class="cta-bottom">
+  <h2>Listo para empezar</h2>
+  <p>Sin registro, sin instalación. Abre la app y empieza a registrar.</p>
+  <a href="asistencia.html" class="hero-cta">
+    Abrir la aplicación →
+  </a>
+</div>
+
+<!-- ===== FOOTER ===== -->
+<footer>
+  <p>Control de Asistencia · Herramienta gratuita · <a href="asistencia.html">Ir a la app</a></p>
+</footer>
+
+<script>
+  function toggleFaq(btn) {
+    btn.closest('.faq-item').classList.toggle('open');
+  }
+</script>
+</body>
+</html>
