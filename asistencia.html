@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="Gestiona la asistencia de tus alumnos semana a semana por materias." />
   <title>Control de Asistencia · App</title>
+  <script>!function(){var t=localStorage.getItem('theme');if(t==='light'||!t&&matchMedia('(prefers-color-scheme:light)').matches)document.documentElement.classList.add('light-mode')}()</script>
   <link rel="stylesheet" href="styles.css" />
   <style>
     /* ── App shell ─────────────────────────────────────── */
@@ -297,6 +298,10 @@
     /* Override global select dentro de report-controls */
     #report-materia-picker { width: auto; font-weight: 600; cursor: pointer; }
 
+    /* ── No-class week ───────────────────────────────────── */
+    .noclass-active { background: rgba(234,179,8,.15) !important; color: var(--warn) !important; border-color: rgba(234,179,8,.3) !important; }
+    .dot-noclass { color: var(--text-3); font-size: .85rem; }
+
     /* ── Responsive ─────────────────────────────────────── */
     @media (max-width: 640px) {
       header { flex-wrap: wrap; }
@@ -327,11 +332,20 @@
   <symbol id="ic-import" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
   </symbol>
+  <symbol id="ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+  </symbol>
+  <symbol id="ic-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+  </symbol>
 </svg>
 
 <!-- ===== HEADER ===== -->
 <header aria-label="Cabecera de la aplicación">
   <a href="index.html" class="btn btn-ghost btn-sm" aria-label="Volver al inicio" title="Volver al inicio">← Inicio</a>
+  <button id="theme-toggle" class="btn btn-ghost btn-sm" onclick="toggleTheme()" aria-label="Cambiar a modo claro" title="Cambiar a modo claro">
+    <svg width="15" height="15" aria-hidden="true" focusable="false"><use href="#ic-sun"/></svg>
+  </button>
   <h1>Control de <span>Asistencia</span></h1>
 
   <nav class="tabs" role="tablist" aria-label="Secciones">
@@ -415,6 +429,7 @@
     <div class="bulk-actions">
       <button class="btn btn-success btn-sm" onclick="markAll(true)">✓ Todos presentes</button>
       <button class="btn btn-danger  btn-sm" onclick="markAll(false)">✗ Todos ausentes</button>
+      <button id="btn-noclass" class="btn btn-ghost btn-sm" onclick="toggleNoClass()" aria-pressed="false" title="Marcar/desmarcar esta semana como sin clases (no cuenta en el reporte)">Sin clases</button>
       <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
         <label style="font-size:.8rem;color:var(--text-muted)">Ir a semana:</label>
         <input type="date" id="jump-date" style="width:160px" onchange="jumpToDate(this.value)" />
@@ -519,7 +534,7 @@
 const STORAGE_KEY = 'attendance_app_v2';
 
 let state = {
-  materias: [],          // [{ id, name, students:[], weeks:{} }]
+  materias: [],          // [{ id, name, students:[], weeks:{}, noClassWeeks:{}, startDate, totalWeeks, sessionsPerWeek, lossPercent }]
   currentMateriaId: null,
   currentWeekKey: null
 };
@@ -588,6 +603,8 @@ function load() {
   }
   if (!state.currentMateriaId) state.currentMateriaId = state.materias[0].id;
   if (!state.currentWeekKey)  state.currentWeekKey  = getWeekKey(new Date());
+  // Normalize fields added in later versions
+  state.materias.forEach(m => { if (!m.noClassWeeks) m.noClassWeeks = {}; });
 }
 
 // ===================================================
@@ -653,7 +670,7 @@ function promptNewMateria() {
     onConfirm: (cfg) => {
       if (state.materias.find(m => m.name === cfg.name)) { toast('Ya existe esa materia'); return; }
       const id = generateId();
-      state.materias.push({ id, students: [], weeks: {}, ...cfg });
+      state.materias.push({ id, students: [], weeks: {}, noClassWeeks: {}, ...cfg });
       state.currentMateriaId = id;
       if (cfg.startDate) state.currentWeekKey = getWeekKey(new Date(cfg.startDate + 'T12:00:00'));
       save();
@@ -869,8 +886,9 @@ function clearMateria() {
     confirmLabel: 'Borrar',
     confirmClass: 'btn-danger',
     onConfirm: () => {
-      m.students = [];
-      m.weeks    = {};
+      m.students     = [];
+      m.weeks        = {};
+      m.noClassWeeks = {};
       save();
       renderStudents();
       toast('Alumnos borrados');
@@ -891,14 +909,37 @@ function ensureWeek(m, wk) {
 function renderAttendance() {
   const m  = currentMateria();
   const wk = state.currentWeekKey;
-  ensureWeek(m, wk);
 
   const monday = weekKeyToMonday(wk);
   const friday = new Date(monday);
   friday.setUTCDate(monday.getUTCDate() + 4);
 
-  document.getElementById('week-label').textContent     = `Semana ${wk}`;
+  document.getElementById('week-label').textContent      = `Semana ${wk}`;
   document.getElementById('week-date-range').textContent = `${formatDate(monday)} — ${formatDate(friday)}`;
+
+  // Update "Sin clases" button state
+  const isNoClass  = !!(m.noClassWeeks?.[wk]);
+  const noclassBtn = document.getElementById('btn-noclass');
+  if (noclassBtn) {
+    noclassBtn.classList.toggle('noclass-active', isNoClass);
+    noclassBtn.setAttribute('aria-pressed', String(isNoClass));
+  }
+
+  const grid = document.getElementById('attendance-grid');
+
+  if (isNoClass) {
+    document.getElementById('week-progress').style.width = '0%';
+    document.getElementById('week-stat').textContent     = `Sin clases · ${m.name}`;
+    grid.innerHTML = `
+      <div class="empty-state" style="padding:40px 20px">
+        <p style="font-size:1rem;font-weight:600;margin-bottom:6px">Sin clases esta semana</p>
+        <p style="font-size:.875rem;color:var(--text-2)">Esta semana no cuenta en el reporte ni en los cálculos de asistencia.</p>
+        <button class="btn btn-ghost btn-sm" style="margin-top:16px" onclick="toggleNoClass()">Desmarcar</button>
+      </div>`;
+    return;
+  }
+
+  ensureWeek(m, wk);
 
   const record  = m.weeks[wk];
   const total   = m.students.length;
@@ -908,7 +949,6 @@ function renderAttendance() {
   document.getElementById('week-progress').style.width = pct + '%';
   document.getElementById('week-stat').textContent     = `${present} / ${total} presentes (${pct}%) · ${m.name}`;
 
-  const grid = document.getElementById('attendance-grid');
   if (!m.students.length) {
     grid.innerHTML = `<div class="empty-state"><div class="icon">📋</div><p>Agrega alumnos en la pestaña <strong>Alumnos</strong>.</p></div>`;
     return;
@@ -964,6 +1004,16 @@ function toggleAttendance(idx, val) {
   document.getElementById('week-stat').textContent     = `${present} / ${total} presentes (${pct}%) · ${m.name}`;
 }
 
+function toggleNoClass() {
+  const m  = currentMateria();
+  const wk = state.currentWeekKey;
+  if (!m.noClassWeeks) m.noClassWeeks = {};
+  if (m.noClassWeeks[wk]) { delete m.noClassWeeks[wk]; }
+  else                     { m.noClassWeeks[wk] = true; }
+  save();
+  renderAttendance();
+}
+
 function markAll(val) {
   const m  = currentMateria();
   const wk = state.currentWeekKey;
@@ -992,7 +1042,6 @@ function refreshReport(materiaId) {
   picker.value = id;
 
   const m     = getMateriaById(id) || currentMateria();
-  const weeks = Object.keys(m.weeks).sort();
   const studs = m.students;
 
   // Course config
@@ -1000,6 +1049,17 @@ function refreshReport(materiaId) {
   const totalSess  = (m.totalWeeks || 0) * spw;
   const lossThresh = totalSess ? Math.floor(totalSess * ((m.lossPercent ?? 25) / 100)) : null;
   const hasCfg     = !!m.totalWeeks;
+
+  // Filter recorded weeks by configured date range
+  let weeks = Object.keys(m.weeks).sort();
+  if (m.startDate && m.totalWeeks) {
+    const startWk = getWeekKey(new Date(m.startDate + 'T12:00:00'));
+    const endMon  = new Date(m.startDate + 'T12:00:00');
+    endMon.setUTCDate(endMon.getUTCDate() + (m.totalWeeks - 1) * 7);
+    const endWk   = getWeekKey(endMon);
+    weeks = weeks.filter(wk => wk >= startWk && wk <= endWk);
+  }
+  const noClassWks = m.noClassWeeks || {};
 
   // Report header
   const rHeader = document.getElementById('report-header');
@@ -1018,11 +1078,12 @@ function refreshReport(materiaId) {
   }
   document.getElementById('report-materia-sub').textContent = subParts.join(' · ');
 
-  // Per-student tallies for global stats
+  // Per-student tallies for global stats (skip noClass weeks)
   let totalP = 0, totalPos = 0, atRiskCount = 0, lostCount = 0;
   studs.forEach(name => {
     let p = 0, a = 0;
     weeks.forEach(wk => {
+      if (noClassWks[wk]) return;
       const val = m.weeks[wk]?.[name];
       if (val === true)  { p++; totalP++; }
       if (val !== undefined) totalPos++;
@@ -1030,7 +1091,7 @@ function refreshReport(materiaId) {
     });
     if (hasCfg && lossThresh !== null) {
       const absSess = a * spw;
-      if (absSess >= lossThresh)                    lostCount++;
+      if (absSess >= lossThresh)                         lostCount++;
       else if (absSess >= Math.floor(lossThresh * 0.75)) atRiskCount++;
     }
   });
@@ -1065,7 +1126,7 @@ function refreshReport(materiaId) {
     <tr>
       <th>#</th>
       <th>Alumno</th>
-      ${weeks.map(wk => `<th title="${wk}">${shortWeekLabel(wk)}</th>`).join('')}
+      ${weeks.map(wk => `<th title="${wk}${noClassWks[wk] ? ' · Sin clases' : ''}" ${noClassWks[wk] ? 'style="color:var(--text-3)"' : ''}>${shortWeekLabel(wk)}</th>`).join('')}
       <th>${hasCfg && spw > 1 ? 'Ses. presentes' : 'Presentes'}</th>
       <th>${hasCfg && spw > 1 ? 'Ses. ausentes'  : 'Ausentes'}</th>
       <th>% Asistencia</th>
@@ -1075,6 +1136,7 @@ function refreshReport(materiaId) {
   document.getElementById('report-tbody').innerHTML = studs.map((name, i) => {
     let p = 0, a = 0;
     const cells = weeks.map(wk => {
+      if (noClassWks[wk]) return `<td class="week-cell"><span class="dot-noclass" title="Sin clases">—</span></td>`;
       const val = m.weeks[wk]?.[name];
       if (val === true)  { p++; return `<td class="week-cell"><span class="dot-present">●</span></td>`; }
       if (val === false) { a++; return `<td class="week-cell"><span class="dot-absent">●</span></td>`; }
@@ -1218,11 +1280,22 @@ function exportCSV() {
   const totalSess  = (m.totalWeeks || 0) * spw;
   const lossThresh = totalSess ? Math.floor(totalSess * ((m.lossPercent ?? 25) / 100)) : null;
   const hasCfg     = !!m.totalWeeks;
+  const noClassWks = m.noClassWeeks || {};
 
-  const header = ['Alumno', ...weeks.map(wk => `${wk} (${shortWeekLabel(wk)})`), 'Ses. presentes', 'Ses. ausentes', '% Asistencia', ...(hasCfg ? ['Estado'] : [])];
+  // Same date-range filter as report
+  let weeks = Object.keys(m.weeks).sort();
+  if (m.startDate && m.totalWeeks) {
+    const startWk = getWeekKey(new Date(m.startDate + 'T12:00:00'));
+    const endMon  = new Date(m.startDate + 'T12:00:00');
+    endMon.setUTCDate(endMon.getUTCDate() + (m.totalWeeks - 1) * 7);
+    weeks = weeks.filter(wk => wk >= startWk && wk <= getWeekKey(endMon));
+  }
+
+  const header = ['Alumno', ...weeks.map(wk => `${wk} (${shortWeekLabel(wk)})${noClassWks[wk] ? ' NC' : ''}`), 'Ses. presentes', 'Ses. ausentes', '% Asistencia', ...(hasCfg ? ['Estado'] : [])];
   const rows = m.students.map(name => {
     let p = 0, a = 0;
     const cells = weeks.map(wk => {
+      if (noClassWks[wk]) return 'NC';
       const v = m.weeks[wk]?.[name];
       if (v === true)  { p++; return 'P'; }
       if (v === false) { a++; return 'A'; }
@@ -1339,9 +1412,29 @@ window.addEventListener('beforeunload', (e) => {
 });
 
 // ===================================================
+//  TEMA (claro / oscuro)
+// ===================================================
+function toggleTheme() {
+  const isLight = document.documentElement.classList.toggle('light-mode');
+  localStorage.setItem('theme', isLight ? 'light' : 'dark');
+  updateThemeBtn();
+}
+
+function updateThemeBtn() {
+  const isLight = document.documentElement.classList.contains('light-mode');
+  const btn = document.getElementById('theme-toggle');
+  if (!btn) return;
+  btn.querySelector('use').setAttribute('href', isLight ? '#ic-moon' : '#ic-sun');
+  const lbl = isLight ? 'Cambiar a modo oscuro' : 'Cambiar a modo claro';
+  btn.setAttribute('aria-label', lbl);
+  btn.title = lbl;
+}
+
+// ===================================================
 //  INIT
 // ===================================================
 load();
+updateThemeBtn();
 renderMateriaBar();
 renderStudents();
 markClean(`Guardado · ${_timeNow()}`);

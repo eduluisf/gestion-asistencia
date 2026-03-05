@@ -6,6 +6,7 @@
   <meta name="description" content="Gestiona la asistencia de tus alumnos semana a semana por materias. Genera reportes automáticos y exporta a CSV. Sin registro, sin instalación." />
   <title>Control de Asistencia · Gestión semanal por materias</title>
 
+  <script>!function(){var t=localStorage.getItem('theme');if(t==='light'||!t&&matchMedia('(prefers-color-scheme:light)').matches)document.documentElement.classList.add('light-mode')}()</script>
   <link rel="stylesheet" href="styles.css" />
 
   <style>
@@ -19,6 +20,7 @@
       -webkit-backdrop-filter: blur(12px);
       border-bottom: 1px solid var(--border);
     }
+    .light-mode .site-header { background: rgba(248,248,249,.92); }
     .header-inner {
       max-width: 1080px;
       margin: 0 auto;
@@ -420,6 +422,12 @@
     <symbol id="i-arrow-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
     </symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+    </symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </symbol>
   </svg>
 
   <!-- Skip navigation -->
@@ -437,6 +445,9 @@
         <a href="#datos"           class="nav-link">Tus datos</a>
         <a href="#faq"             class="nav-link">FAQ</a>
       </nav>
+      <button id="theme-toggle" class="btn btn-ghost btn-sm" onclick="toggleTheme()" aria-label="Cambiar a modo claro" title="Cambiar a modo claro">
+        <svg width="15" height="15" aria-hidden="true" focusable="false"><use href="#i-sun"/></svg>
+      </button>
       <a href="asistencia.html" class="btn btn-primary btn-sm" aria-label="Abrir la aplicación de asistencia">
         Abrir app
       </a>
@@ -570,6 +581,7 @@
             <ul>
               <li>Usa <strong>Todos presentes</strong> para marcar la clase rápido y luego ajusta los ausentes.</li>
               <li>Navega a semanas anteriores o futuras con las flechas o el selector de fecha.</li>
+              <li>Si esa semana no hubo clases (asueto, puente, etc.), pulsa <span class="tag tag-warn">Sin clases</span> para marcar la semana como no contable. Esa semana no afecta el porcentaje ni el estado del alumno en el reporte.</li>
               <li>Puedes editar semanas pasadas en cualquier momento.</li>
             </ul>
           </div>
@@ -581,8 +593,10 @@
             <h3>Consulta el reporte</h3>
             <p>En la pestaña <span class="tag">Reporte</span> selecciona la materia para ver estadísticas globales y el historial semana a semana de cada alumno.</p>
             <ul>
+              <li>Si configuraste fecha de inicio, el reporte <strong>solo muestra semanas dentro del rango del curso</strong> — semanas antes del inicio quedan fuera automáticamente.</li>
               <li>Los porcentajes se ajustan al umbral configurado: si el máx. de faltas es 25%, el verde empieza desde 75% de asistencia.</li>
-              <li>Si configuraste el curso verás una columna <strong>Estado</strong> con <span class="tag tag-green">OK</span>, <span class="tag tag-warn">En riesgo</span> o <span class="tag tag-red">Perdida</span> por alumno, calculado en sesiones.</li>
+              <li>Si configuraste el curso verás una columna <strong>Estado</strong> con <span class="tag tag-green">OK</span>, <span class="tag tag-warn">En riesgo</span> o <span class="tag tag-red">Perdida</span> por alumno, calculado en sesiones reales.</li>
+              <li>Las semanas marcadas como <span class="tag tag-warn">Sin clases</span> aparecen en la tabla con "—" y no cuentan en ningún cálculo.</li>
               <li>Las tarjetas de resumen muestran cuántos alumnos están en riesgo o han perdido la materia.</li>
               <li>Puedes ver el reporte de cualquier materia sin cambiar la materia activa.</li>
             </ul>
@@ -758,6 +772,22 @@
   </footer>
 
   <script>
+    function toggleTheme() {
+      const isLight = document.documentElement.classList.toggle('light-mode');
+      localStorage.setItem('theme', isLight ? 'light' : 'dark');
+      updateThemeBtn();
+    }
+    function updateThemeBtn() {
+      const isLight = document.documentElement.classList.contains('light-mode');
+      const btn = document.getElementById('theme-toggle');
+      if (!btn) return;
+      btn.querySelector('use').setAttribute('href', isLight ? '#i-moon' : '#i-sun');
+      const lbl = isLight ? 'Cambiar a modo oscuro' : 'Cambiar a modo claro';
+      btn.setAttribute('aria-label', lbl);
+      btn.title = lbl;
+    }
+    updateThemeBtn();
+
     function toggleFaq(btn) {
       const item    = btn.closest('.faq-item');
       const isOpen  = item.hasAttribute('data-open');

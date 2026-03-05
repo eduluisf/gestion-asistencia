@@ -265,6 +265,29 @@ hr.divider { border: none; border-top: 1px solid var(--border); }
 .modal input   { margin-top: 14px; }
 .modal-footer  { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 
+/* ─── LIGHT MODE ──────────────────────────────────────────── */
+.light-mode {
+  --bg:        #f8f8f9;
+  --surface:   #ffffff;
+  --surface-2: #f1f1f3;
+  --border:    #e4e4e7;
+  --border-2:  #d4d4d8;
+
+  --accent:     #2a9d5c;
+  --accent-2:   #38b872;
+  --accent-dim: rgba(42, 157, 92, .1);
+
+  --present: #16a34a;
+  --absent:  #dc2626;
+  --warn:    #b45309;
+
+  --text:   #18181b;
+  --text-2: #3f3f46;
+  --text-3: #71717a;
+
+  --shadow: 0 4px 24px rgba(0, 0, 0, .06);
+}
+
 /* ─── ANIMATIONS ──────────────────────────────────────────── */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(-5px); }
