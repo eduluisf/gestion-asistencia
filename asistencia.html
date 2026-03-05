@@ -330,10 +330,133 @@
     .report-week-nav-info { flex: 1; text-align: center; font-weight: 700; font-size: .875rem; }
 
     /* ── Responsive ─────────────────────────────────────── */
+
+    /* Tablet: hide save status text to save space */
+    @media (max-width: 860px) {
+      .save-status { display: none; }
+    }
+
     @media (max-width: 640px) {
-      header { flex-wrap: wrap; }
-      .save-indicator { display: none; }
-      .materia-bar { top: auto; position: relative; }
+
+      /* ── Header ──────────────────────────────────────────
+         Row 1: ← Inicio  |  título (flex:1)  |  ☀
+         Row 2: Alumnos · Asistencia · Reporte (full width)
+         Row 3: Guardar · Exportar · Importar  (full width)  */
+      header {
+        flex-wrap: wrap;
+        padding: 10px 14px;
+        gap: 6px;
+        justify-content: flex-start;
+      }
+      header h1 {
+        flex: 1;
+        text-align: center;
+        font-size: .95rem;
+        /* keep h1 in row 1 between back btn and theme toggle */
+      }
+      .tabs {
+        width: 100%;
+        gap: 3px;
+      }
+      .tab-btn {
+        flex: 1;
+        text-align: center;
+        padding: 9px 4px;
+        font-size: .78rem;
+      }
+      .file-actions {
+        width: 100%;
+        border-left: none;
+        padding-left: 0;
+        margin-left: 0;
+        border-top: 1px solid var(--border);
+        padding-top: 8px;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .file-actions .btn {
+        font-size: .8rem;
+        padding: 8px 12px;
+        min-height: 36px;
+      }
+
+      /* ── Materia bar ──────────────────────────────────── */
+      .materia-bar {
+        top: auto;
+        position: relative;
+        padding: 8px 14px;
+        gap: 8px;
+      }
+      .materia-bar-label { display: none; }
+      #materia-select    { min-width: unset; flex: 1; max-width: 100%; }
+      .materia-actions   { flex-wrap: wrap; gap: 4px; }
+
+      /* ── Main ─────────────────────────────────────────── */
+      main { padding: 14px; }
+
+      /* ── Week nav ─────────────────────────────────────── */
+      .week-nav {
+        flex-wrap: wrap;
+        padding: 10px 14px;
+        gap: 6px;
+      }
+      /* Show week-info above the nav buttons */
+      .week-info {
+        order: -1;
+        width: 100%;
+        margin-bottom: 4px;
+      }
+      /* Progress bar: fill full width */
+      .progress-bar-wrap { width: 100% !important; }
+
+      /* ── Bulk actions ─────────────────────────────────── */
+      .bulk-actions { gap: 6px; }
+      #jump-date-wrap {
+        margin-left: 0 !important;
+        width: 100%;
+      }
+      #jump-date { width: 100% !important; }
+
+      /* ── Attendance row ───────────────────────────────── */
+      .att-row {
+        flex-wrap: wrap;
+        padding: 12px 14px;
+        gap: 10px;
+      }
+      /* Name fills row; toggles go below */
+      .att-name { width: 100%; }
+      .toggle-wrap { margin-left: auto; }
+      /* Multi-session: wrap toggles and start from left */
+      .sessions-wrap { width: 100%; }
+
+      /* ── Alumnos: import buttons ──────────────────────── */
+      .import-section > div { flex-wrap: wrap; }
+      .import-section .btn  { width: 100%; justify-content: center; }
+
+      /* ── Report controls ──────────────────────────────── */
+      .report-controls { gap: 8px; }
+      #report-materia-picker { width: 100%; }
+      #report-actions {
+        margin-left: 0 !important;
+        width: 100%;
+      }
+
+      /* ── Report week nav ──────────────────────────────── */
+      .report-week-nav { padding: 10px 14px; }
+
+      /* ── Stats grid ───────────────────────────────────── */
+      .stats-grid {
+        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+        gap: 8px;
+      }
+      .stat-val  { font-size: 1.5rem; }
+      .stat-card { padding: 14px 8px; }
+
+      /* ── Report table: compact ────────────────────────── */
+      table     { font-size: .78rem; }
+      thead th  { padding: 8px 6px; font-size: .65rem; letter-spacing: .02em; }
+      tbody td  { padding: 8px 6px; }
+      td.week-cell { font-size: .72rem; }
     }
 
     @media print {
@@ -457,8 +580,8 @@
       <button class="btn btn-success btn-sm" onclick="markAll(true)">✓ Todos presentes</button>
       <button class="btn btn-danger  btn-sm" onclick="markAll(false)">✗ Todos ausentes</button>
       <button id="btn-noclass" class="btn btn-ghost btn-sm" onclick="toggleNoClass()" aria-pressed="false" title="Marcar/desmarcar esta semana como sin clases (no cuenta en el reporte)">Sin clases</button>
-      <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
-        <label style="font-size:.8rem;color:var(--text-muted)">Ir a semana:</label>
+      <div id="jump-date-wrap" style="margin-left:auto;display:flex;align-items:center;gap:8px">
+        <label style="font-size:.8rem;color:var(--text-muted);white-space:nowrap">Ir a semana:</label>
         <input type="date" id="jump-date" style="width:160px" onchange="jumpToDate(this.value)" />
       </div>
     </div>
@@ -472,7 +595,7 @@
     <div class="report-controls">
       <label style="font-size:.8rem;color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px">Ver reporte de:</label>
       <select id="report-materia-picker" onchange="refreshReport(this.value)"></select>
-      <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
+      <div id="report-actions" style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-ghost   btn-sm" onclick="refreshReport()">↻ Actualizar</button>
         <button class="btn btn-primary btn-sm" onclick="exportCSV()">↓ Exportar CSV</button>
         <button class="btn btn-ghost   btn-sm" onclick="exportPDF()">⎙ Guardar PDF</button>
