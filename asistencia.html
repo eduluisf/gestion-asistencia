@@ -572,12 +572,13 @@ function weekKeyToMonday(wk) {
 }
 
 function formatDate(d) {
-  return d.toLocaleDateString('es-MX', { day:'2-digit', month:'short', year:'numeric' });
+  return d.toLocaleDateString('es-MX', { day:'2-digit', month:'short', year:'numeric', timeZone:'UTC' });
 }
 
 function changeWeek(delta) {
   const monday = weekKeyToMonday(state.currentWeekKey);
   monday.setUTCDate(monday.getUTCDate() + delta * 7);
+  monday.setUTCHours(12);
   state.currentWeekKey = getWeekKey(monday);
   save();
   renderAttendance();
@@ -968,7 +969,7 @@ function refreshReport(materiaId) {
 }
 
 function shortWeekLabel(wk) {
-  return weekKeyToMonday(wk).toLocaleDateString('es-MX', { day:'2-digit', month:'short' });
+  return weekKeyToMonday(wk).toLocaleDateString('es-MX', { day:'2-digit', month:'short', timeZone:'UTC' });
 }
 
 // ===================================================
