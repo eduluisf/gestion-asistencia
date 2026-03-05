@@ -298,6 +298,9 @@
     /* Override global select dentro de report-controls */
     #report-materia-picker { width: auto; font-weight: 600; cursor: pointer; }
 
+    /* ── Disabled nav button ─────────────────────────────── */
+    .btn:disabled { opacity: .35; cursor: not-allowed; pointer-events: none; }
+
     /* ── No-class week ───────────────────────────────────── */
     .noclass-active { background: rgba(234,179,8,.15) !important; color: var(--warn) !important; border-color: rgba(234,179,8,.3) !important; }
     .dot-noclass { color: var(--text-3); font-size: .85rem; }
@@ -414,7 +417,7 @@
   <!-- ============================  TAB 2 · ASISTENCIA  ============================ -->
   <section id="view-asistencia" class="view" role="tabpanel" aria-labelledby="tab-asistencia" tabindex="-1">
     <div class="week-nav">
-      <button class="btn btn-ghost btn-sm" onclick="changeWeek(-1)">← Anterior</button>
+      <button id="btn-week-prev" class="btn btn-ghost btn-sm" onclick="changeWeek(-1)">← Anterior</button>
       <div class="week-info">
         <div class="week-label" id="week-label">Semana —</div>
         <div class="week-date"  id="week-date-range">—</div>
@@ -423,7 +426,7 @@
         </div>
         <div class="week-stat" id="week-stat">0 / 0 presentes</div>
       </div>
-      <button class="btn btn-ghost btn-sm" onclick="changeWeek(1)">Siguiente →</button>
+      <button id="btn-week-next" class="btn btn-ghost btn-sm" onclick="changeWeek(1)">Siguiente →</button>
     </div>
 
     <div class="bulk-actions">
@@ -635,14 +638,18 @@ function changeWeek(delta) {
   const monday = weekKeyToMonday(state.currentWeekKey);
   monday.setUTCDate(monday.getUTCDate() + delta * 7);
   monday.setUTCHours(12);
-  state.currentWeekKey = getWeekKey(monday);
+  const newKey = getWeekKey(monday);
+  if (newKey > getWeekKey(new Date())) return; // no ir a semanas futuras
+  state.currentWeekKey = newKey;
   save();
   renderAttendance();
 }
 
 function jumpToDate(val) {
   if (!val) return;
-  state.currentWeekKey = getWeekKey(new Date(val + 'T12:00:00'));
+  const newKey = getWeekKey(new Date(val + 'T12:00:00'));
+  if (newKey > getWeekKey(new Date())) { toast('No puedes ir a semanas futuras'); return; }
+  state.currentWeekKey = newKey;
   save();
   renderAttendance();
 }
@@ -916,6 +923,10 @@ function renderAttendance() {
 
   document.getElementById('week-label').textContent      = `Semana ${wk}`;
   document.getElementById('week-date-range').textContent = `${formatDate(monday)} — ${formatDate(friday)}`;
+
+  // Disable "Siguiente" if already at current week
+  const nextBtn = document.getElementById('btn-week-next');
+  if (nextBtn) nextBtn.disabled = wk >= getWeekKey(new Date());
 
   // Update "Sin clases" button state
   const isNoClass  = !!(m.noClassWeeks?.[wk]);
@@ -1437,7 +1448,9 @@ updateThemeBtn();
 renderMateriaBar();
 renderStudents();
 markClean(`Guardado · ${_timeNow()}`);
-document.getElementById('jump-date').value = new Date().toISOString().slice(0, 10);
+const _today = new Date().toISOString().slice(0, 10);
+document.getElementById('jump-date').value = _today;
+document.getElementById('jump-date').max   = _today;
 </script>
 </body>
 </html>

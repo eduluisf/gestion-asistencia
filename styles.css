@@ -266,7 +266,8 @@ hr.divider { border: none; border-top: 1px solid var(--border); }
 .modal-footer  { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 
 /* ─── LIGHT MODE ──────────────────────────────────────────── */
-.light-mode {
+/* html.light-mode has specificity 0,1,1 — beats :root (0,1,0) */
+html.light-mode {
   --bg:        #f8f8f9;
   --surface:   #ffffff;
   --surface-2: #f1f1f3;
